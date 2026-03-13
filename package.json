@@ -1,0 +1,38 @@
+{
+  "name": "cardlens",
+  "version": "1.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.1",
+    "@expo/vector-icons": "^14.1.0",
+    "@supabase/supabase-js": "^2.98.0",
+    "expo": "~53.0.0",
+    "expo-asset": "~11.1.5",
+    "expo-camera": "~16.1.11",
+    "expo-font": "~13.3.2",
+    "expo-linear-gradient": "~14.1.0",
+    "expo-router": "~5.0.0",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "react-native": "0.79.6",
+    "react-native-fbsdk-next": "^13.4.3",
+    "react-native-purchases": "^8.12.0",
+    "react-native-safe-area-context": "4.12.0",
+    "react-native-screens": "~4.4.0",
+    "react-native-web": "^0.20.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.0.10",
+    "babel-plugin-module-resolver": "^5.0.2",
+    "typescript": "~5.8.3"
+  }
+}

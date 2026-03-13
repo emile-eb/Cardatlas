@@ -1,0 +1,8 @@
+[functions.process-scan]
+verify_jwt = false
+
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.card-comps]
+verify_jwt = false
