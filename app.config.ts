@@ -45,7 +45,8 @@ const config: ExpoConfig = {
   assetBundlePatterns: ["**/*"],
   ios: {
     supportsTablet: false,
-    bundleIdentifier
+    bundleIdentifier,
+    buildNumber: "2"
   },
   plugins,
   experiments: {
