@@ -8,11 +8,21 @@ import type { ActiveListing, UUID } from "@/types";
 import { colors, spacing, typography } from "@/theme/tokens";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import { ModuleLoadingCard } from "@/components/loading/ModuleLoadingCard";
+import type { CardItem } from "@/types/models";
+import {
+  createEmptyActiveListingsSegments,
+  getDefaultActiveMarketSegment,
+  getVisibleActiveListings,
+  getSegmentLabel,
+} from "@/services/activeListings/classification";
+import type { ActiveListingsSegments } from "@/types";
 
 const ebayLogoImage = require("../../assets/Ebay Logo.png");
 
 type Props = {
   cardId?: UUID | null;
+  card?: CardItem | null;
   referenceValue?: number;
   maxItems?: number;
   onOpenDetails?: () => void;
@@ -75,17 +85,18 @@ function insightLine(listings: ActiveListing[], referenceValue: number | undefin
   return `Average ask is ${deltaPct} below reference value.`;
 }
 
-export function ActiveListingsPanel({ cardId, referenceValue, maxItems = 5, onOpenDetails }: Props) {
+export function ActiveListingsPanel({ cardId, card, referenceValue, maxItems = 5, onOpenDetails }: Props) {
   const [loading, setLoading] = useState(true);
-  const [rows, setRows] = useState<ActiveListing[]>([]);
+  const [segments, setSegments] = useState<ActiveListingsSegments>(createEmptyActiveListingsSegments);
   const [usedFallback, setUsedFallback] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
+  const fetchWindow = Math.max(maxItems * 3, 12);
 
   useEffect(() => {
     let active = true;
     const run = async () => {
       if (!cardId) {
-        setRows([]);
+        setSegments(createEmptyActiveListingsSegments());
         setServiceError(null);
         setUsedFallback(false);
         setLoading(false);
@@ -96,15 +107,21 @@ export function ActiveListingsPanel({ cardId, referenceValue, maxItems = 5, onOp
       try {
         const response = await activeListingsService.getDisplayActiveListings(cardId, {
           referenceValue,
-          maxItems
+          maxItems: fetchWindow
         });
         if (!active) return;
-        setRows(response.listings.slice(0, maxItems));
+        setSegments({
+          raw: response.filteredSegments.raw.slice(0, maxItems),
+          psa9: response.filteredSegments.psa9.slice(0, maxItems),
+          psa10: response.filteredSegments.psa10.slice(0, maxItems),
+          otherGraded: response.filteredSegments.otherGraded.slice(0, maxItems),
+          excluded: response.filteredSegments.excluded
+        });
         setUsedFallback(response.usedFallback);
         setServiceError(response.error ?? null);
       } catch (error) {
         if (!active) return;
-        setRows([]);
+        setSegments(createEmptyActiveListingsSegments());
         setUsedFallback(false);
         setServiceError(error instanceof Error ? error.message : "Active listings unavailable.");
       } finally {
@@ -116,10 +133,22 @@ export function ActiveListingsPanel({ cardId, referenceValue, maxItems = 5, onOp
     return () => {
       active = false;
     };
-  }, [cardId, referenceValue, maxItems]);
+  }, [cardId, referenceValue, fetchWindow]);
+
+  const segmentedRows = useMemo(() => {
+    const defaultSegment = getDefaultActiveMarketSegment(card, segments);
+    const selected = segments[defaultSegment];
+    const visibleRows = selected.length ? selected : segments.raw.length ? segments.raw : [...segments.psa9, ...segments.psa10, ...segments.otherGraded];
+    return {
+      defaultSegment,
+      visibleRows
+    };
+  }, [card, segments]);
+
+  const totalVisibleRows = useMemo(() => getVisibleActiveListings(segments).length, [segments]);
 
   const summary = useMemo(() => {
-    const prices = rows.map((x) => x.price).filter((x) => Number.isFinite(x));
+    const prices = segmentedRows.visibleRows.map((x) => x.price).filter((x) => Number.isFinite(x));
     if (!prices.length) {
       return { avg: 0, low: 0, high: 0, count: 0, currency: "USD" };
     }
@@ -129,9 +158,9 @@ export function ActiveListingsPanel({ cardId, referenceValue, maxItems = 5, onOp
       low: Math.min(...prices),
       high: Math.max(...prices),
       count: prices.length,
-      currency: rows[0]?.currency || "USD"
+      currency: segmentedRows.visibleRows[0]?.currency || "USD"
     };
-  }, [rows]);
+  }, [segmentedRows.visibleRows]);
 
   const ladder = useMemo(() => {
     if (!summary.count) return null;
@@ -146,20 +175,20 @@ export function ActiveListingsPanel({ cardId, referenceValue, maxItems = 5, onOp
   }, [summary, referenceValue]);
 
   const comparisonLine = useMemo(
-    () => insightLine(rows, referenceValue, summary.avg, summary.low, summary.high),
-    [rows, referenceValue, summary]
+    () => insightLine(segmentedRows.visibleRows, referenceValue, summary.avg, summary.low, summary.high),
+    [segmentedRows.visibleRows, referenceValue, summary]
   );
 
   return (
     <Panel style={styles.panel}>
       <ResultsModuleHeader
         title="Active Market"
-        trailingLabel={onOpenDetails ? undefined : "Live Ask"}
+        trailingLabel={onOpenDetails ? undefined : `${getSegmentLabel(segmentedRows.defaultSegment)} Ask`}
         onPressAction={onOpenDetails}
       />
       {__DEV__ && usedFallback ? <Text style={styles.devPill}>Preview data</Text> : null}
 
-      {!loading && rows.length ? (
+      {!loading && totalVisibleRows ? (
         <View style={styles.summaryStrip}>
           <View style={[styles.summaryCell, styles.summaryPrimary]}>
             <Text style={styles.summaryLabel}>Average Ask</Text>
@@ -205,16 +234,21 @@ export function ActiveListingsPanel({ cardId, referenceValue, maxItems = 5, onOp
         </View>
       ) : null}
 
-      {loading ? <Text style={styles.loading}>Loading active listings...</Text> : null}
-      {!loading && !rows.length ? (
+      {loading ? (
+        <ModuleLoadingCard
+          title="Active market loading"
+          subtitle="Preparing the current ask market around CardAtlas Reference Value."
+        />
+      ) : null}
+      {!loading && !segmentedRows.visibleRows.length ? (
         <Text style={styles.empty}>
-          {serviceError ? "Active listings are temporarily unavailable." : "No active listings are available right now."}
+          {serviceError ? "Active listings are temporarily unavailable." : `No ${getSegmentLabel(segmentedRows.defaultSegment).toLowerCase()} active listings are available right now.`}
         </Text>
       ) : null}
 
-      {!loading && rows.length ? (
+      {!loading && segmentedRows.visibleRows.length ? (
         <View style={styles.rows}>
-          {rows.map((listing, index) => {
+          {segmentedRows.visibleRows.map((listing, index) => {
             const hasUrl = Boolean(listing.itemWebUrl?.trim());
             return (
               <Pressable
@@ -402,10 +436,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 9
-  },
-  loading: {
-    ...typography.Caption,
-    color: colors.textSecondary
   },
   empty: {
     ...typography.Caption,

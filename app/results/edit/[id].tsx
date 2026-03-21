@@ -7,6 +7,7 @@ import { Panel } from "@/components/Panel";
 import { scanCorrectionService, type CardSearchResult, type CardCorrectionFields } from "@/services/scans/ScanCorrectionService";
 import { scanProcessingService } from "@/services/scans/ScanProcessingService";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
+import { FullScreenLoading } from "@/components/loading/FullScreenLoading";
 
 type FormState = {
   sport: string;
@@ -115,9 +116,12 @@ export default function EditResultScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.helper}>Loading correction tools...</Text>
-      </View>
+      <FullScreenLoading
+        title="Preparing correction tools"
+        message="Loading the current scan and likely card matches."
+        eyebrow="RESULT CORRECTION"
+        icon="create-outline"
+      />
     );
   }
 
@@ -243,9 +247,11 @@ export default function EditResultScreen() {
           </View>
           <View style={styles.saveWrap}>
             <PrimaryButton
-              title={saving ? "Saving..." : "Save Corrected Result"}
+              title="Save Corrected Result"
               onPress={saveManualEdits}
-              disabled={saving || !form.playerName.trim()}
+              disabled={!form.playerName.trim()}
+              pending={saving}
+              pendingLabel="Saving..."
             />
           </View>
         </Panel>
@@ -260,12 +266,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.backgroundPrimary
-  },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: layout.pagePadding
   },
   header: {
     paddingHorizontal: layout.pagePadding,

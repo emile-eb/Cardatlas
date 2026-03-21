@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { parseStructuredIdentification } from "./structuredOutput.ts";
 import { createRecognitionProvider } from "./providers.ts";
 import type { ProcessScanResponse, StructuredCardIdentification } from "./types.ts";
+import { ensureTrackedCard } from "../../_shared/trackedCards.ts";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.55;
 const REVIEW_THRESHOLD = 0.85;
@@ -312,6 +313,18 @@ export async function processScan(input: {
         error_message: outcome.status === "failed" ? outcome.reviewReason : null
       })
       .eq("id", scan.id);
+
+    if (cardId && (outcome.status === "completed" || outcome.status === "needs_review")) {
+      try {
+        await ensureTrackedCard(service, cardId, "scan_auto");
+      } catch (trackingError) {
+        console.log("[process-scan] auto_tracking_failed", {
+          scanId: scan.id,
+          cardId,
+          reason: formatUnknownError(trackingError)
+        });
+      }
+    }
 
     return {
       scanId: scan.id,

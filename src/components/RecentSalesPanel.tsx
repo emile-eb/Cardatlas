@@ -4,6 +4,7 @@ import { Panel } from "@/components/Panel";
 import { compsService } from "@/services/comps/CompsService";
 import type { CardSale, UUID } from "@/types";
 import { colors, spacing, typography } from "@/theme/tokens";
+import { ModuleLoadingCard } from "@/components/loading/ModuleLoadingCard";
 
 type Props = {
   cardId?: UUID | null;
@@ -124,7 +125,12 @@ export function RecentSalesPanel({ cardId, referenceValue, maxItems = 5, compact
         </View>
       ) : null}
 
-      {loading ? <Text style={styles.loading}>Loading recent sales...</Text> : null}
+      {loading ? (
+        <ModuleLoadingCard
+          title="Recent sales loading"
+          subtitle="Preparing recent market comps around the current reference value."
+        />
+      ) : null}
       {!loading && !visibleRows.length ? <Text style={styles.empty}>No recent sales yet.</Text> : null}
 
       {!loading && visibleRows.length ? (
@@ -233,10 +239,6 @@ const styles = StyleSheet.create({
     ...typography.BodyMedium,
     fontFamily: "Inter-SemiBold",
     color: colors.textPrimary
-  },
-  loading: {
-    ...typography.Caption,
-    color: colors.textSecondary
   },
   empty: {
     ...typography.Caption,

@@ -12,15 +12,19 @@ async function openUrl(url: string) {
 
 export function PaywallFooterLinks({
   onRestore,
+  restoreBusy = false,
   tone = "dark"
 }: {
   onRestore: () => void;
+  restoreBusy?: boolean;
   tone?: "dark" | "light";
 }) {
   return (
     <View style={styles.row}>
-      <Pressable onPress={onRestore}>
-        <Text style={[styles.link, tone === "light" ? styles.linkLight : null]}>Restore Purchases</Text>
+      <Pressable onPress={onRestore} disabled={restoreBusy} style={({ pressed }) => [pressed && !restoreBusy ? styles.linkPressed : null]}>
+        <Text style={[styles.link, tone === "light" ? styles.linkLight : null, restoreBusy ? styles.linkBusy : null]}>
+          {restoreBusy ? "Restoring..." : "Restore Purchases"}
+        </Text>
       </Pressable>
       <Pressable onPress={() => void openUrl(TERMS_URL)}>
         <Text style={[styles.link, tone === "light" ? styles.linkLight : null]}>Terms of Use</Text>
@@ -44,6 +48,12 @@ const styles = StyleSheet.create({
   link: {
     ...typography.Caption,
     color: "#9EA8B9"
+  },
+  linkPressed: {
+    opacity: 0.68
+  },
+  linkBusy: {
+    opacity: 0.72
   },
   linkLight: {
     color: "#70798A"

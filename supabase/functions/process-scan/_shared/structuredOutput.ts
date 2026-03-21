@@ -45,6 +45,15 @@ function asOptionalNumber(value: unknown): number | null {
   return num;
 }
 
+function asOptionalConfidence(value: unknown): "high" | "medium" | "low" | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "high" || normalized === "medium" || normalized === "low") {
+    return normalized;
+  }
+  return null;
+}
+
 export function parseStructuredIdentification(payload: unknown): StructuredCardIdentification {
   if (!isObject(payload)) {
     throw new Error("Invalid structured output: payload must be an object.");
@@ -80,6 +89,11 @@ export function parseStructuredIdentification(payload: unknown): StructuredCardI
     },
     referenceValue: asNumber(payload.referenceValue, "referenceValue"),
     gradedUpside: asOptionalNumber(payload.gradedUpside),
+    psa10Multiplier: asOptionalNumber(payload.psa10Multiplier),
+    psa9Multiplier: asOptionalNumber(payload.psa9Multiplier),
+    gradingReason: asNullableString(payload.gradingReason),
+    gradingRecommendation: asNullableString(payload.gradingRecommendation),
+    gradingConfidence: asOptionalConfidence(payload.gradingConfidence),
     valueSource: asRequiredString(payload.valueSource, "valueSource"),
     reviewNeeded: Boolean(payload.reviewNeeded),
     reviewReason: asNullableString(payload.reviewReason)

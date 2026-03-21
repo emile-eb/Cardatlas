@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { colors, radius, spacing, typography } from "@/theme/tokens";
 
 type Props = {
@@ -9,29 +9,49 @@ type Props = {
   style?: ViewStyle;
   disabled?: boolean;
   leftIcon?: ReactNode;
+  pending?: boolean;
+  pendingLabel?: string;
 };
 
-export function AppButton({ title, onPress, variant = "primary", style, disabled, leftIcon }: Props) {
+export function AppButton({
+  title,
+  onPress,
+  variant = "primary",
+  style,
+  disabled,
+  leftIcon,
+  pending,
+  pendingLabel
+}: Props) {
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
+  const resolvedDisabled = disabled || pending;
+  const spinnerColor = isPrimary ? colors.white : variant === "ghost" ? colors.textPrimary : colors.textSecondary;
+  const label = pending ? pendingLabel ?? title : title;
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
+      disabled={resolvedDisabled}
       style={({ pressed }) => [
         styles.base,
         isPrimary && styles.primary,
         isSecondary && styles.secondary,
         variant === "ghost" && styles.ghost,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
+        pressed && !resolvedDisabled && styles.pressed,
+        resolvedDisabled && styles.disabled,
         style
       ]}
     >
       <View style={styles.content}>
-        {leftIcon ? <View style={styles.iconWrap}>{leftIcon}</View> : null}
-        <Text style={[styles.text, isPrimary && styles.primaryText, isSecondary && styles.secondaryText]}>{title}</Text>
+        {pending ? (
+          <View style={styles.pendingWrap}>
+            <ActivityIndicator size="small" color={spinnerColor} />
+          </View>
+        ) : leftIcon ? (
+          <View style={styles.iconWrap}>{leftIcon}</View>
+        ) : null}
+        <Text style={[styles.text, isPrimary && styles.primaryText, isSecondary && styles.secondaryText]}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -68,6 +88,9 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   iconWrap: {
+    marginRight: 8
+  },
+  pendingWrap: {
     marginRight: 8
   },
   text: {

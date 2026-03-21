@@ -218,6 +218,21 @@ export interface CardGradingScenariosRow {
   updated_at: ISODateString;
 }
 
+export interface CardPriceHistorySnapshotsRow {
+  id: UUID;
+  card_id: UUID;
+  snapshot_date: ISODateString;
+  reference_value: number | null;
+  raw_avg_ask: number | null;
+  psa9_avg_ask: number | null;
+  psa10_avg_ask: number | null;
+  listing_count_raw: number | null;
+  listing_count_psa9: number | null;
+  listing_count_psa10: number | null;
+  created_at?: ISODateString | null;
+  updated_at?: ISODateString | null;
+}
+
 export interface MarketPulseItemsRow {
   id: UUID;
   source: string;

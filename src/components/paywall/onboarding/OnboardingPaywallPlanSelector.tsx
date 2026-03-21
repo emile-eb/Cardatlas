@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import type { BillingPeriod, PaywallPlanViewModel } from "@/types";
 import { colors, typography } from "@/theme/tokens";
+import { InlineLoadingState } from "@/components/loading/InlineLoadingState";
 
 function periodKey(plan: PaywallPlanViewModel): BillingPeriod {
   if (plan.billingPeriod === "yearly" || plan.billingPeriod === "monthly" || plan.billingPeriod === "weekly") {
@@ -202,13 +203,17 @@ export function OnboardingPaywallPlanSelector({
 
       <View style={styles.planSection}>
         {loading ? (
-          <View style={styles.loadingState}>
-            <Text style={styles.loadingText}>Loading live plans...</Text>
-          </View>
+          <InlineLoadingState
+            title="Loading live plans"
+            message="Preparing the current trial and pricing options."
+            minHeight={172}
+          />
         ) : plans.length === 0 ? (
-          <View style={styles.loadingState}>
-            <Text style={styles.loadingText}>Plans unavailable. Try again shortly.</Text>
-          </View>
+          <InlineLoadingState
+            title="Plans unavailable"
+            message="We couldn't load pricing right now. Try again shortly."
+            minHeight={172}
+          />
         ) : (
           <>
             <View style={[styles.planGrid, visiblePlans.length === 1 ? styles.planGridSingle : null]}>
@@ -226,9 +231,11 @@ export function OnboardingPaywallPlanSelector({
       </View>
 
       <PrimaryButton
-        title={busy ? "Processing..." : ctaTitle(selectedPlan)}
+        title={ctaTitle(selectedPlan)}
         onPress={onPurchase}
-        disabled={busy || !selectedPlan}
+        disabled={!selectedPlan}
+        pending={busy}
+        pendingLabel="Processing..."
         style={styles.cta}
       />
       {statusText ? <Text style={styles.status}>{statusText}</Text> : null}
@@ -425,19 +432,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18
   },
-  loadingState: {
-    minHeight: 172,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(20,27,37,0.08)",
-    backgroundColor: "#FAFBFC",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 18
-  },
-  loadingText: {
-    ...typography.BodyMedium,
-    color: "#687181",
-    textAlign: "center"
-  }
 });

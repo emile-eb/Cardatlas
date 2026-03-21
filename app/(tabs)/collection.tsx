@@ -16,6 +16,7 @@ import { useIsFocused } from "@react-navigation/native";
 import { CollectionCardItem } from "@/components/CollectionCardItem";
 import { EmptyState } from "@/components/EmptyState";
 import { PrimaryButton } from "@/components/PrimaryButton";
+import { setCollectionViewerContext } from "@/features/collection/viewerContext";
 import { useAppState } from "@/state/AppState";
 import { colors, layout, spacing, typography } from "@/theme/tokens";
 
@@ -301,7 +302,13 @@ export default function CollectionTab() {
               <CollectionCardItem
                 key={item.collectionItemId ?? item.id}
                 item={item}
-                onPress={() => router.push(`/card/${item.id}`)}
+                onPress={() => {
+                  setCollectionViewerContext(filteredAndSorted.map((card) => card.collectionItemId ?? card.id));
+                  router.push({
+                    pathname: "/collection/view/[id]",
+                    params: { id: item.collectionItemId ?? item.id }
+                  });
+                }}
                 onManage={() => {
                   if (!item.collectionItemId) return;
                   router.push({

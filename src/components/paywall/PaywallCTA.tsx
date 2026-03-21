@@ -32,9 +32,11 @@ export function PaywallCTA({
   return (
     <View style={styles.wrap}>
       <PrimaryButton
-        title={busy ? "Processing..." : ctaTitle(selectedPlan)}
+        title={ctaTitle(selectedPlan)}
         onPress={onPurchase}
-        disabled={busy || !selectedPlan}
+        disabled={!selectedPlan}
+        pending={busy}
+        pendingLabel="Processing..."
         style={ctaStyle}
       />
       {helperText ? <Text style={[styles.helper, tone === "light" ? styles.helperLight : null]}>{helperText}</Text> : null}

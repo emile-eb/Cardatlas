@@ -117,7 +117,10 @@ export default function GradingOutlookDetailScreen() {
           setErrorText("We couldn't find enough card context to calculate a grading outlook.");
           return;
         }
-        const nextOutlook = await gradingOutlookService.getGradingOutlook(cardId, nextCard.referenceValue);
+        const nextOutlook = await gradingOutlookService.getGradingOutlook(cardId, {
+          rawValue: nextCard.referenceValue,
+          sourceScanId: nextCard.sourceScanId ?? null
+        });
         if (!active) return;
         setOutlook(nextOutlook);
       } catch (error) {
@@ -167,7 +170,7 @@ export default function GradingOutlookDetailScreen() {
       card={card}
       referenceValue={referenceValue}
       title="Grading Outlook"
-      subtitle="Grading scenarios from the current CardAtlas value."
+      subtitle="Grading outcomes from CardAtlas value, GPT gradeability reads, and live PSA asks."
       resultId={id}
       backHref={backHref}
       referenceVariant="integrated"
@@ -198,15 +201,25 @@ export default function GradingOutlookDetailScreen() {
         <View style={styles.scenarioList}>
           <View style={styles.scenarioRow}>
             <Text style={styles.scenarioLabel}>Raw value</Text>
-            <Text style={styles.scenarioValue}>{money(outlook.rawValue)}</Text>
+            <Text style={styles.scenarioValue}>{money(outlook.rawReferenceValue)}</Text>
           </View>
           <View style={styles.scenarioRow}>
-            <Text style={styles.scenarioLabel}>PSA 9 scenario</Text>
-            <Text style={styles.scenarioValue}>{money(outlook.psa9Value)}</Text>
+            <View style={styles.scenarioCopy}>
+              <Text style={styles.scenarioLabel}>PSA 9 outcome</Text>
+              <Text style={styles.scenarioMeta}>
+                {outlook.psa9AverageAsk ? `Live PSA 9 ask ${money(outlook.psa9AverageAsk)}` : `Multiplier ${outlook.psa9Multiplier.toFixed(2)}x`}
+              </Text>
+            </View>
+            <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa9)}</Text>
           </View>
           <View style={styles.scenarioRow}>
-            <Text style={styles.scenarioLabel}>PSA 10 scenario</Text>
-            <Text style={styles.scenarioValue}>{money(outlook.psa10Value)}</Text>
+            <View style={styles.scenarioCopy}>
+              <Text style={styles.scenarioLabel}>PSA 10 outcome</Text>
+              <Text style={styles.scenarioMeta}>
+                {outlook.psa10AverageAsk ? `Live PSA 10 ask ${money(outlook.psa10AverageAsk)}` : `Multiplier ${outlook.psa10Multiplier.toFixed(2)}x`}
+              </Text>
+            </View>
+            <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa10)}</Text>
           </View>
           <View style={[styles.scenarioRow, styles.scenarioRowAccent]}>
             <Text style={styles.scenarioLabelStrong}>Potential upside</Text>
@@ -226,6 +239,18 @@ export default function GradingOutlookDetailScreen() {
                 : "CardAtlas sees limited grading leverage relative to the current reference value, so staying raw is the cleaner baseline."}
           </Text>
         </View>
+
+        {outlook.gradingReason ? (
+          <>
+            <View style={styles.contextDivider} />
+            <View style={styles.contextBlock}>
+              <Text style={styles.contextLabel}>
+                GPT grading read{outlook.gradingConfidence ? ` · ${outlook.gradingConfidence}` : ""}
+              </Text>
+              <Text style={styles.contextCopy}>{outlook.gradingReason}</Text>
+            </View>
+          </>
+        ) : null}
 
         <View style={styles.contextDivider} />
 
@@ -353,6 +378,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12
   },
+  scenarioCopy: {
+    flex: 1,
+    gap: 2
+  },
   scenarioRowAccent: {
     borderBottomWidth: 0,
     backgroundColor: "#FFF9F8"
@@ -371,6 +400,10 @@ const styles = StyleSheet.create({
     ...typography.BodyLarge,
     color: "#10161F",
     fontFamily: "Inter-SemiBold"
+  },
+  scenarioMeta: {
+    ...typography.Caption,
+    color: "#788295"
   },
   scenarioValueAccent: {
     ...typography.H3,

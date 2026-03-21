@@ -18,6 +18,7 @@ import { colors } from "@/theme/tokens";
 import type { PaywallPlanViewModel } from "@/types";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import { InlineLoadingState } from "@/components/loading/InlineLoadingState";
 
 function preferredPlan(plans: PaywallPlanViewModel[]): PaywallPlanViewModel | null {
   return plans.find((plan) => plan.isRecommended) ?? plans[0] ?? null;
@@ -269,13 +270,19 @@ export default function PaywallScreen() {
               <View style={styles.planBlock}>
                 <Text style={styles.planLabel}>Choose your plan</Text>
               {loading ? (
-                <View style={styles.loadingCard}>
-                  <Text style={styles.loadingText}>Loading live plans...</Text>
-                </View>
+                <InlineLoadingState
+                  tone="dark"
+                  title="Loading live plans"
+                  message="Preparing your current CardAtlas Pro options."
+                  minHeight={108}
+                />
               ) : plans.length === 0 ? (
-                <View style={styles.loadingCard}>
-                  <Text style={styles.loadingText}>Plans unavailable. Try again shortly.</Text>
-                </View>
+                <InlineLoadingState
+                  tone="dark"
+                  title="Plans unavailable"
+                  message="We couldn't load pricing right now. Try again shortly."
+                  minHeight={108}
+                />
               ) : (
                 <PaywallPlanSelector
                   plans={plans}
@@ -287,7 +294,7 @@ export default function PaywallScreen() {
             </View>
 
             <PaywallCTA selectedPlan={selectedPlan} busy={busy} statusText={statusText} onPurchase={handlePurchase} />
-            <PaywallFooterLinks onRestore={handleRestore} />
+            <PaywallFooterLinks onRestore={handleRestore} restoreBusy={busy} />
           </ScrollView>
         </LinearGradient>
       </Animated.View>
@@ -393,14 +400,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: "Inter-Medium"
   },
-  loadingCard: {
-    borderRadius: 13,
-    backgroundColor: "#121826",
-    paddingVertical: 14,
-    alignItems: "center"
-  },
-  loadingText: {
-    color: "#AFBACD",
-    fontSize: 12
-  }
 });

@@ -5,10 +5,12 @@ import { ResultsModuleHeader } from "@/components/results/ResultsModuleHeader";
 import { gradingOutlookService } from "@/services/grading/GradingOutlookService";
 import type { GradingOutlook, UUID } from "@/types";
 import { colors, typography } from "@/theme/tokens";
+import { ModuleLoadingCard } from "@/components/loading/ModuleLoadingCard";
 
 type Props = {
   cardId?: UUID | null;
   rawValue?: number;
+  sourceScanId?: UUID | null;
   compact?: boolean;
   onOpenDetails?: () => void;
 };
@@ -23,7 +25,7 @@ function recommendationText(outlook: GradingOutlook) {
   return "Limited grading upside";
 }
 
-export function GradingOutlookPanel({ cardId, rawValue, compact = false, onOpenDetails }: Props) {
+export function GradingOutlookPanel({ cardId, rawValue, sourceScanId, compact = false, onOpenDetails }: Props) {
   const [outlook, setOutlook] = useState<GradingOutlook | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,7 +40,10 @@ export function GradingOutlookPanel({ cardId, rawValue, compact = false, onOpenD
 
       setLoading(true);
       try {
-        const next = await gradingOutlookService.getGradingOutlook(cardId, rawValue);
+        const next = await gradingOutlookService.getGradingOutlook(cardId, {
+          rawValue,
+          sourceScanId
+        });
         if (!active) return;
         setOutlook(next);
       } catch {
@@ -53,12 +58,15 @@ export function GradingOutlookPanel({ cardId, rawValue, compact = false, onOpenD
     return () => {
       active = false;
     };
-  }, [cardId, rawValue]);
+  }, [cardId, rawValue, sourceScanId]);
 
   if (loading) {
     return (
-      <Panel>
-        <Text style={styles.loading}>Loading grading outlook...</Text>
+      <Panel style={styles.panel}>
+        <ModuleLoadingCard
+          title="Grading outlook loading"
+          subtitle="Preparing the grading decision from the current CardAtlas value."
+        />
       </Panel>
     );
   }
@@ -83,7 +91,7 @@ export function GradingOutlookPanel({ cardId, rawValue, compact = false, onOpenD
         <View style={styles.recommendationDot} />
         <View style={styles.recommendationCopy}>
           <Text style={styles.recommendationTitle}>{recommendationText(outlook)}</Text>
-          <Text style={styles.recommendationBody}>PSA outcomes compared with current raw value.</Text>
+          <Text style={styles.recommendationBody}>PSA outcomes blend CardAtlas value, GPT grading multipliers, and live PSA asks.</Text>
         </View>
         <Text style={styles.recommendationValue}>+{money(outlook.potentialUpside)}</Text>
       </View>
@@ -91,15 +99,25 @@ export function GradingOutlookPanel({ cardId, rawValue, compact = false, onOpenD
       <View style={styles.scenarioRows}>
         <View style={styles.scenarioRow}>
           <Text style={styles.scenarioLabel}>Raw</Text>
-          <Text style={styles.scenarioValue}>{money(outlook.rawValue)}</Text>
+          <Text style={styles.scenarioValue}>{money(outlook.rawReferenceValue)}</Text>
         </View>
         <View style={styles.scenarioRow}>
-          <Text style={styles.scenarioLabel}>PSA 9</Text>
-          <Text style={styles.scenarioValue}>{money(outlook.psa9Value)}</Text>
+          <View style={styles.scenarioCopy}>
+            <Text style={styles.scenarioLabel}>PSA 9 outcome</Text>
+            <Text style={styles.scenarioMeta}>
+              {outlook.psa9AverageAsk ? `Live PSA 9 ask ${money(outlook.psa9AverageAsk)}` : "Multiplier-led outlook"}
+            </Text>
+          </View>
+          <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa9)}</Text>
         </View>
         <View style={[styles.scenarioRow, styles.scenarioRowLast]}>
-          <Text style={styles.scenarioLabel}>PSA 10</Text>
-          <Text style={styles.scenarioValue}>{money(outlook.psa10Value)}</Text>
+          <View style={styles.scenarioCopy}>
+            <Text style={styles.scenarioLabel}>PSA 10 outcome</Text>
+            <Text style={styles.scenarioMeta}>
+              {outlook.psa10AverageAsk ? `Live PSA 10 ask ${money(outlook.psa10AverageAsk)}` : "Multiplier-led outlook"}
+            </Text>
+          </View>
+          <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa10)}</Text>
         </View>
       </View>
 
@@ -114,10 +132,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 12
-  },
-  loading: {
-    ...typography.Caption,
-    color: colors.textSecondary
   },
   empty: {
     ...typography.Caption,
@@ -175,6 +189,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between"
   },
+  scenarioCopy: {
+    flex: 1,
+    gap: 2
+  },
   scenarioRowLast: {
     borderBottomWidth: 0
   },
@@ -186,6 +204,10 @@ const styles = StyleSheet.create({
     ...typography.BodyMedium,
     color: colors.textPrimary,
     fontFamily: "Inter-SemiBold"
+  },
+  scenarioMeta: {
+    ...typography.Caption,
+    color: "#768093"
   },
   rationale: {
     marginTop: 10,

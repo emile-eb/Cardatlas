@@ -2,6 +2,7 @@ import { getRequiredSupabaseClient } from "@/lib/supabase/client";
 import type { CardItem } from "@/types/models";
 import type { ProcessScanResponse, ScanJobStatus, UUID } from "@/types";
 import { rarityFromPrice } from "@/utils/rarity";
+import { trackingService } from "@/services/tracking/TrackingService";
 
 export interface ProcessedScanResult {
   scanId: UUID;
@@ -127,6 +128,16 @@ class ScanProcessingServiceImpl implements ScanProcessingService {
     };
 
     const effectiveCardId = scan.corrected_card_id ?? scan.card_id;
+    if (effectiveCardId && (scan.status === "completed" || scan.status === "needs_review")) {
+      void trackingService.ensureTrackedCard(effectiveCardId).catch((error) => {
+        if (__DEV__) {
+          console.log("[tracking] ensure_failed_nonblocking", {
+            cardId: effectiveCardId,
+            error
+          });
+        }
+      });
+    }
     const cardPromise = effectiveCardId
       ? supabase.from("cards").select("*").eq("id", effectiveCardId).maybeSingle()
       : Promise.resolve({ data: null, error: null } as any);

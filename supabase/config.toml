@@ -6,3 +6,18 @@ verify_jwt = false
 
 [functions.card-comps]
 verify_jwt = false
+
+[functions.ebay-account-deletion]
+verify_jwt = false
+
+[functions.active-market-ebay]
+verify_jwt = false
+
+[functions.market-pulse-refresh]
+verify_jwt = false
+
+[functions.ensure-card-tracking]
+verify_jwt = false
+
+[functions.tracked-card-snapshots-refresh]
+verify_jwt = false

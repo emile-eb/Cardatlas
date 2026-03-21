@@ -8,6 +8,8 @@ type Props = {
   disabled?: boolean;
   style?: ViewStyle;
   leftIcon?: ReactNode;
+  pending?: boolean;
+  pendingLabel?: string;
 };
 
 export function PrimaryButton(props: Props) {

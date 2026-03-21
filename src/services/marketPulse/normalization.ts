@@ -19,14 +19,28 @@ export function normalizeProviderListings(listings: ProviderListing[]) {
     item_origin_date: asIsoOrNull(listing.itemOriginDate ?? null),
     buying_options: listing.buyingOptions ?? null,
     marketplace_id: listing.marketplaceId ?? "EBAY_US",
-    card_id: null,
+    card_id: listing.cardId ?? null,
     sport: listing.sport ?? null,
     player_name: listing.playerName ?? null,
     team: listing.team ?? null,
     pulse_reason: listing.pulseReason ?? "New Listing",
     is_mock: Boolean(listing.isMock),
     sort_order: index,
-    raw_payload: listing.rawPayload ?? null
+    raw_payload: listing.rawPayload ?? {
+      cardIdentity: {
+        year: listing.year ?? null,
+        brand: listing.brand ?? null,
+        setName: listing.setName ?? null,
+        cardNumber: listing.cardNumber ?? null
+      },
+      marketContext: {
+        referenceValue: listing.referenceValue ?? null,
+        activeMarketAverageAsk: listing.activeMarketAverageAsk ?? null,
+        lowestAsk: listing.lowestAsk ?? null,
+        listingCount: listing.listingCount ?? null,
+        pulseScore: listing.signalStrengthScore ?? null,
+        refreshedAt: asIsoOrNull(listing.lastRefreshedAt ?? null)
+      }
+    }
   }));
 }
-

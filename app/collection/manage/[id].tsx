@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { PrimaryButton } from "@/components/PrimaryButton";
@@ -85,24 +85,34 @@ export default function ManageCollectionItemScreen() {
     }
   };
 
+  const confirmRemove = async () => {
+    try {
+      setDeleting(true);
+      setError(null);
+      await removeCollectionItem(id);
+      router.replace("/(tabs)/collection");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove item.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const remove = async () => {
+    if (Platform.OS === "web" && typeof globalThis.confirm === "function") {
+      const confirmed = globalThis.confirm("Remove this card from your collection?");
+      if (!confirmed) return;
+      await confirmRemove();
+      return;
+    }
+
     Alert.alert("Remove card?", "This removes the card from your collection only.", [
       { text: "Cancel", style: "cancel" },
       {
         text: deleting ? "Removing..." : "Remove",
         style: "destructive",
         onPress: () => {
-          void (async () => {
-            try {
-              setDeleting(true);
-              await removeCollectionItem(id);
-              router.replace("/(tabs)/collection");
-            } catch (err) {
-              setError(err instanceof Error ? err.message : "Failed to remove item.");
-            } finally {
-              setDeleting(false);
-            }
-          })();
+          void confirmRemove();
         }
       }
     ]);
@@ -309,10 +319,19 @@ export default function ManageCollectionItemScreen() {
         </View>
 
         <View style={styles.actionsSection}>
-          <PrimaryButton title={saving ? "Saving..." : "Save Changes"} onPress={save} disabled={saving || deleting || !hasChanges} />
+          <PrimaryButton
+            title="Save Changes"
+            onPress={save}
+            disabled={deleting || !hasChanges}
+            pending={saving}
+            pendingLabel="Saving..."
+          />
 
           <Pressable onPress={remove} disabled={saving || deleting} style={styles.deleteBtn}>
-            <Text style={styles.deleteText}>{deleting ? "Removing..." : "Remove from Collection"}</Text>
+            <View style={styles.deleteContent}>
+              {deleting ? <ActivityIndicator size="small" color="#b3261e" /> : null}
+              <Text style={styles.deleteText}>{deleting ? "Removing..." : "Remove from Collection"}</Text>
+            </View>
           </Pressable>
         </View>
 
@@ -556,6 +575,11 @@ const styles = StyleSheet.create({
   deleteBtn: {
     alignItems: "center",
     paddingVertical: 6
+  },
+  deleteContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
   },
   deleteText: {
     ...typography.bodySmall,

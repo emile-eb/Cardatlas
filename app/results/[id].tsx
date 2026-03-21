@@ -6,6 +6,7 @@ import { scanProcessingService, type ProcessedScanResult } from "@/services/scan
 import { scanCorrectionService } from "@/services/scans/ScanCorrectionService";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { colors, layout, typography } from "@/theme/tokens";
+import { FullScreenLoading } from "@/components/loading/FullScreenLoading";
 
 export default function ResultsScreen() {
   const { id, r } = useLocalSearchParams<{ id: string; r?: string }>();
@@ -70,9 +71,12 @@ export default function ResultsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.label}>Loading processed scan...</Text>
-      </View>
+      <FullScreenLoading
+        title="Preparing card results"
+        message="Loading the latest CardAtlas view for this scan."
+        eyebrow="RESULTS"
+        icon="card-outline"
+      />
     );
   }
 
@@ -90,8 +94,9 @@ export default function ResultsScreen() {
         <Text style={styles.error}>Scan failed</Text>
         <Text style={styles.label}>{result.errorMessage ?? "The scan could not be processed."}</Text>
         <PrimaryButton
-          title={retrying ? "Retrying..." : "Retry Processing"}
-          disabled={retrying}
+          title="Retry Processing"
+          pending={retrying}
+          pendingLabel="Retrying..."
           onPress={async () => {
             if (!id) return;
             try {
@@ -167,8 +172,9 @@ export default function ResultsScreen() {
           </View>
           <View style={styles.reviewCta}>
             <PrimaryButton
-              title={retrying ? "Reprocessing..." : "Retry Processing"}
-              disabled={retrying}
+              title="Retry Processing"
+              pending={retrying}
+              pendingLabel="Reprocessing..."
               onPress={async () => {
                 if (!id) return;
                 try {

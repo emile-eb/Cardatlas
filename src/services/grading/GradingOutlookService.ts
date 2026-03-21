@@ -1,22 +1,35 @@
-﻿import { getRequiredSupabaseClient } from "@/lib/supabase/client";
-import type { CardGradingScenario, GradingOutlook, GradingRecommendation, GradingScenarioSource, UUID } from "@/types";
+import { getRequiredSupabaseClient } from "@/lib/supabase/client";
+import { activeListingsService } from "@/services/activeListings/ActiveListingsService";
+import type {
+  CardGradingScenario,
+  GradingOutlook,
+  GradingRecommendation,
+  GradingScenarioSource,
+  StructuredCardIdentification,
+  UUID
+} from "@/types";
 
 const PSA9_HEURISTIC_MULTIPLIER = 2.0;
 const PSA10_HEURISTIC_MULTIPLIER = 4.5;
+const MIN_GRADING_MULTIPLIER = 0.75;
+const MAX_GRADING_MULTIPLIER = 12;
+const ACTIVE_MARKET_WINDOW = 24;
 
-function inferGrade(value?: string | null): "9" | "10" | null {
-  const v = (value ?? "").toUpperCase();
-  if (!v) return null;
-  if (v.includes("10") || v.includes("GEM")) return "10";
-  if (v.includes("9")) return "9";
-  return null;
-}
+type GradingPayload = Pick<
+  StructuredCardIdentification,
+  "psa9Multiplier" | "psa10Multiplier" | "gradingReason" | "gradingRecommendation" | "gradingConfidence"
+>;
 
-function inferGradeFromSaleRow(row: any): "9" | "10" | null {
-  const fromGrade = inferGrade(row?.grade ?? null);
-  if (fromGrade) return fromGrade;
-  return inferGrade(row?.title ?? null);
-}
+type RecommendationDecision = {
+  recommendation: GradingRecommendation;
+  rationale: string;
+};
+
+type MultiplierResolution = {
+  value: number;
+  source: "gpt" | "heuristic";
+  wasClamped: boolean;
+};
 
 function avg(values: number[]): number | null {
   if (!values.length) return null;
@@ -27,7 +40,58 @@ function round2(n: number): number {
   return Number(n.toFixed(2));
 }
 
-function decideRecommendation(raw: number, psa9: number, psa10: number): { recommendation: GradingRecommendation; rationale: string } {
+function asFinitePositiveNumber(value: unknown): number | null {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
+}
+
+function normalizeRecommendation(value?: string | null): GradingRecommendation | null {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes("worth")) return "Worth Grading";
+  if (normalized.includes("only") && normalized.includes("condition")) return "Only if condition is strong";
+  if (normalized.includes("not worth") || normalized.includes("probably not")) return "Probably not worth grading";
+  return null;
+}
+
+function resolveMultiplier(input: unknown, fallback: number): MultiplierResolution {
+  const parsed = Number(input);
+  if (!Number.isFinite(parsed)) {
+    return {
+      value: fallback,
+      source: "heuristic",
+      wasClamped: false
+    };
+  }
+
+  const clamped = Math.min(MAX_GRADING_MULTIPLIER, Math.max(MIN_GRADING_MULTIPLIER, parsed));
+  return {
+    value: clamped,
+    source: "gpt",
+    wasClamped: clamped !== parsed
+  };
+}
+
+function computeOutcome(rawReferenceValue: number, multiplier: number, activeAverageAsk: number | null) {
+  const base = rawReferenceValue * multiplier;
+  if (!activeAverageAsk || activeAverageAsk <= 0) {
+    return {
+      baseValue: round2(base),
+      outcomeValue: round2(base),
+      usedActiveAverage: false
+    };
+  }
+
+  const thirdDifference = (base - activeAverageAsk) / 3;
+  const outcome = base - thirdDifference;
+  return {
+    baseValue: round2(base),
+    outcomeValue: round2(outcome),
+    usedActiveAverage: true
+  };
+}
+
+function decideFormulaRecommendation(raw: number, psa9: number, psa10: number): RecommendationDecision {
   const nineUpside = psa9 - raw;
   const tenUpside = psa10 - raw;
   const nineRatio = raw > 0 ? psa9 / raw : 1;
@@ -36,31 +100,74 @@ function decideRecommendation(raw: number, psa9: number, psa10: number): { recom
   if (nineRatio >= 1.6 && tenRatio >= 2.8 && tenUpside >= 150) {
     return {
       recommendation: "Worth Grading",
-      rationale: "PSA 9 already shows meaningful upside, and PSA 10 materially improves value further."
+      rationale: "The projected PSA 9 and PSA 10 outcomes both clear the current CardAtlas baseline with real upside."
     };
   }
 
   if (tenRatio >= 2.5 && nineRatio < 1.6) {
     return {
       recommendation: "Only if condition is strong",
-      rationale: "Most of the upside is concentrated in a gem-grade outcome, so condition quality is critical."
+      rationale: "Most of the expected upside is concentrated in a gem-grade outcome, so card quality needs to be exceptional."
     };
   }
 
   return {
     recommendation: "Probably not worth grading",
-    rationale: "The projected PSA 9 and PSA 10 scenarios do not show enough practical upside relative to raw value."
+    rationale: "The projected PSA 9 and PSA 10 outcomes do not create enough dependable spread over the current CardAtlas value."
   };
 }
 
-function toScenario(cardId: UUID, assumedGrade: "Raw" | "9" | "10", estimatedValue: number, source: GradingScenarioSource): CardGradingScenario {
+function mergeRecommendation(
+  raw: number,
+  psa9: number,
+  psa10: number,
+  gradingReason: string | null,
+  aiRecommendation: string | null
+): RecommendationDecision {
+  const formulaDecision = decideFormulaRecommendation(raw, psa9, psa10);
+  const aiDecision = normalizeRecommendation(aiRecommendation);
+
+  let finalRecommendation = formulaDecision.recommendation;
+  if (aiDecision) {
+    if (formulaDecision.recommendation === "Only if condition is strong") {
+      finalRecommendation = aiDecision;
+    } else if (
+      formulaDecision.recommendation === "Worth Grading" &&
+      aiDecision === "Probably not worth grading"
+    ) {
+      finalRecommendation = "Only if condition is strong";
+    } else if (
+      formulaDecision.recommendation === "Probably not worth grading" &&
+      aiDecision === "Worth Grading"
+    ) {
+      finalRecommendation = "Only if condition is strong";
+    }
+  }
+
+  const rationale = gradingReason?.trim()
+    ? `${gradingReason.trim()} ${formulaDecision.rationale}`
+    : formulaDecision.rationale;
+
+  return {
+    recommendation: finalRecommendation,
+    rationale
+  };
+}
+
+function toScenario(
+  cardId: UUID,
+  assumedGrade: "Raw" | "9" | "10",
+  estimatedValue: number,
+  source: GradingScenarioSource,
+  metadata?: Record<string, unknown> | null
+): CardGradingScenario {
   return {
     cardId,
     gradingCompany: "PSA",
     assumedGrade,
     estimatedValue: round2(estimatedValue),
     source,
-    metadata: null
+    metadata: metadata ?? null
   };
 }
 
@@ -87,108 +194,169 @@ async function tryPersistScenarios(cardId: UUID, scenarios: CardGradingScenario[
   await supabase.from("card_grading_scenarios").insert(payload);
 }
 
-async function readStoredScenarios(cardId: UUID): Promise<CardGradingScenario[] | null> {
+async function readGradingPayload(cardId: UUID, sourceScanId?: UUID | null): Promise<GradingPayload | null> {
   const supabase = await getRequiredSupabaseClient();
-  const { data, error } = await supabase
-    .from("card_grading_scenarios")
-    .select("id,card_id,grading_company,assumed_grade,estimated_value,source,metadata,created_at,updated_at")
-    .eq("card_id", cardId)
-    .eq("grading_company", "PSA")
-    .in("assumed_grade", ["Raw", "9", "10"]);
 
-  if (error || !data?.length) return null;
-  return data.map((row: any) => ({
-    id: row.id,
-    cardId: row.card_id,
-    gradingCompany: row.grading_company,
-    assumedGrade: row.assumed_grade,
-    estimatedValue: Number(row.estimated_value ?? 0),
-    source: row.source ?? "heuristic_estimate",
-    metadata: row.metadata ?? null,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
-  }));
+  if (sourceScanId) {
+    const { data, error } = await supabase
+      .from("scans")
+      .select("identified_payload")
+      .eq("id", sourceScanId)
+      .maybeSingle();
+    if (!error && data?.identified_payload) {
+      return data.identified_payload as GradingPayload;
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("scans")
+    .select("identified_payload")
+    .eq("card_id", cardId)
+    .not("identified_payload", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data?.identified_payload) return null;
+  return data.identified_payload as GradingPayload;
 }
 
-function toOutlook(cardId: UUID, scenarios: CardGradingScenario[]): GradingOutlook {
-  const raw = scenarios.find((s) => s.assumedGrade === "Raw")?.estimatedValue ?? 0;
-  const nine = scenarios.find((s) => s.assumedGrade === "9")?.estimatedValue ?? raw;
-  const ten = scenarios.find((s) => s.assumedGrade === "10")?.estimatedValue ?? raw;
+function summarizeSegmentAverage(prices: number[]): number | null {
+  return avg(prices.map((value) => round2(value)).filter((value) => value > 0));
+}
 
-  const recommendation = decideRecommendation(raw, nine, ten);
-  const sources = new Set(scenarios.map((s) => String(s.source)));
-  const source = sources.size > 1 ? "mixed" : (sources.values().next().value as GradingOutlook["source"]) || "heuristic_estimate";
+function toOutlook(input: {
+  cardId: UUID;
+  rawReferenceValue: number;
+  psa9Multiplier: MultiplierResolution;
+  psa10Multiplier: MultiplierResolution;
+  psa9AverageAsk: number | null;
+  psa10AverageAsk: number | null;
+  gradingReason: string | null;
+  gradingRecommendation: string | null;
+  gradingConfidence: "high" | "medium" | "low" | null;
+}): GradingOutlook {
+  const rawScenario = toScenario(input.cardId, "Raw", input.rawReferenceValue, "raw_reference", {
+    rawReferenceValue: round2(input.rawReferenceValue)
+  });
+
+  const psa9Computed = computeOutcome(input.rawReferenceValue, input.psa9Multiplier.value, input.psa9AverageAsk);
+  const psa10Computed = computeOutcome(input.rawReferenceValue, input.psa10Multiplier.value, input.psa10AverageAsk);
+
+  const psa9Source: GradingScenarioSource = psa9Computed.usedActiveAverage
+    ? "market_adjusted"
+    : input.psa9Multiplier.source === "gpt"
+      ? "gpt_multiplier"
+      : "heuristic_estimate";
+  const psa10Source: GradingScenarioSource = psa10Computed.usedActiveAverage
+    ? "market_adjusted"
+    : input.psa10Multiplier.source === "gpt"
+      ? "gpt_multiplier"
+      : "heuristic_estimate";
+
+  const psa9Scenario = toScenario(input.cardId, "9", psa9Computed.outcomeValue, psa9Source, {
+    rawReferenceValue: round2(input.rawReferenceValue),
+    multiplier: input.psa9Multiplier.value,
+    multiplierSource: input.psa9Multiplier.source,
+    multiplierWasClamped: input.psa9Multiplier.wasClamped,
+    activeAverageAsk: input.psa9AverageAsk ? round2(input.psa9AverageAsk) : null,
+    baseValue: psa9Computed.baseValue,
+    usedMarketAverage: psa9Computed.usedActiveAverage
+  });
+  const psa10Scenario = toScenario(input.cardId, "10", psa10Computed.outcomeValue, psa10Source, {
+    rawReferenceValue: round2(input.rawReferenceValue),
+    multiplier: input.psa10Multiplier.value,
+    multiplierSource: input.psa10Multiplier.source,
+    multiplierWasClamped: input.psa10Multiplier.wasClamped,
+    activeAverageAsk: input.psa10AverageAsk ? round2(input.psa10AverageAsk) : null,
+    baseValue: psa10Computed.baseValue,
+    usedMarketAverage: psa10Computed.usedActiveAverage
+  });
+
+  const decision = mergeRecommendation(
+    input.rawReferenceValue,
+    psa9Computed.outcomeValue,
+    psa10Computed.outcomeValue,
+    input.gradingReason,
+    input.gradingRecommendation
+  );
+
+  const nonRawSources = new Set([psa9Source, psa10Source]);
+  const source =
+    nonRawSources.size > 1
+      ? "mixed"
+      : (nonRawSources.values().next().value as GradingOutlook["source"]) || "heuristic_estimate";
 
   return {
-    cardId,
-    recommendation: recommendation.recommendation,
-    rationale: recommendation.rationale,
-    rawValue: round2(raw),
-    psa9Value: round2(nine),
-    psa10Value: round2(ten),
-    potentialUpside: round2(Math.max(0, ten - raw)),
+    cardId: input.cardId,
+    recommendation: decision.recommendation,
+    rationale: decision.rationale,
+    rawValue: round2(input.rawReferenceValue),
+    rawReferenceValue: round2(input.rawReferenceValue),
+    psa9Value: psa9Computed.outcomeValue,
+    psa10Value: psa10Computed.outcomeValue,
+    psa9Multiplier: input.psa9Multiplier.value,
+    psa10Multiplier: input.psa10Multiplier.value,
+    psa9AverageAsk: input.psa9AverageAsk ? round2(input.psa9AverageAsk) : null,
+    psa10AverageAsk: input.psa10AverageAsk ? round2(input.psa10AverageAsk) : null,
+    gradingOutcomePsa9: psa9Computed.outcomeValue,
+    gradingOutcomePsa10: psa10Computed.outcomeValue,
+    gradingReason: input.gradingReason,
+    gradingRecommendation: input.gradingRecommendation,
+    gradingConfidence: input.gradingConfidence,
+    potentialUpside: round2(Math.max(0, psa10Computed.outcomeValue - input.rawReferenceValue)),
     source,
-    scenarios
+    scenarios: [rawScenario, psa9Scenario, psa10Scenario]
   };
 }
 
 export interface GradingOutlookService {
-  getGradingOutlook(cardId: UUID, rawValue?: number): Promise<GradingOutlook>;
+  getGradingOutlook(cardId: UUID, options?: { rawValue?: number; sourceScanId?: UUID | null }): Promise<GradingOutlook>;
 }
 
 class GradingOutlookServiceImpl implements GradingOutlookService {
-  async getGradingOutlook(cardId: UUID, rawValue?: number): Promise<GradingOutlook> {
-    const stored = await readStoredScenarios(cardId);
-    if (stored?.length === 3) {
-      return toOutlook(cardId, stored);
-    }
-
+  async getGradingOutlook(cardId: UUID, options?: { rawValue?: number; sourceScanId?: UUID | null }): Promise<GradingOutlook> {
     const supabase = await getRequiredSupabaseClient();
 
-    const [valuationRes, salesRes] = await Promise.all([
-      supabase
-        .from("valuation_snapshots")
-        .select("reference_value")
-        .eq("card_id", cardId)
-        .order("fetched_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("card_sales")
-        .select("price,grade,title,source")
-        .eq("card_id", cardId)
-        .order("sale_date", { ascending: false })
-        .limit(40)
+    const valuationRes = await supabase
+      .from("valuation_snapshots")
+      .select("reference_value")
+      .eq("card_id", cardId)
+      .order("fetched_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const baseRaw = Number(options?.rawValue ?? valuationRes.data?.reference_value ?? 0);
+    const rawReferenceValue = Number.isFinite(baseRaw) && baseRaw > 0 ? baseRaw : 0;
+
+    const [gradingPayload, activeMarket] = await Promise.all([
+      readGradingPayload(cardId, options?.sourceScanId),
+      activeListingsService.getDisplayActiveListings(cardId, {
+        referenceValue: rawReferenceValue,
+        maxItems: ACTIVE_MARKET_WINDOW
+      })
     ]);
 
-    const baseRaw = Number(rawValue ?? valuationRes.data?.reference_value ?? 0);
-    const safeRaw = Number.isFinite(baseRaw) && baseRaw > 0 ? baseRaw : 0;
+    const psa9AverageAsk = summarizeSegmentAverage(activeMarket.filteredSegments.psa9.map((listing) => listing.price));
+    const psa10AverageAsk = summarizeSegmentAverage(activeMarket.filteredSegments.psa10.map((listing) => listing.price));
 
-    const sales = salesRes.data ?? [];
-    const psa9Comps = sales.filter((row: any) => inferGradeFromSaleRow(row) === "9").map((row: any) => Number(row.price ?? 0)).filter((v: number) => v > 0);
-    const psa10Comps = sales.filter((row: any) => inferGradeFromSaleRow(row) === "10").map((row: any) => Number(row.price ?? 0)).filter((v: number) => v > 0);
+    const psa9Multiplier = resolveMultiplier(gradingPayload?.psa9Multiplier, PSA9_HEURISTIC_MULTIPLIER);
+    const psa10Multiplier = resolveMultiplier(gradingPayload?.psa10Multiplier, PSA10_HEURISTIC_MULTIPLIER);
 
-    const psa9CompAvg = avg(psa9Comps);
-    const psa10CompAvg = avg(psa10Comps);
-
-    const rawScenario = toScenario(cardId, "Raw", safeRaw, "raw_reference");
-    const psa9Scenario = toScenario(
+    const outlook = toOutlook({
       cardId,
-      "9",
-      psa9CompAvg ?? safeRaw * PSA9_HEURISTIC_MULTIPLIER,
-      psa9CompAvg ? "comp_derived" : "heuristic_estimate"
-    );
-    const psa10Scenario = toScenario(
-      cardId,
-      "10",
-      psa10CompAvg ?? safeRaw * PSA10_HEURISTIC_MULTIPLIER,
-      psa10CompAvg ? "comp_derived" : "heuristic_estimate"
-    );
+      rawReferenceValue,
+      psa9Multiplier,
+      psa10Multiplier,
+      psa9AverageAsk,
+      psa10AverageAsk,
+      gradingReason: gradingPayload?.gradingReason?.trim() || null,
+      gradingRecommendation: gradingPayload?.gradingRecommendation?.trim() || null,
+      gradingConfidence: gradingPayload?.gradingConfidence ?? null
+    });
 
-    const scenarios = [rawScenario, psa9Scenario, psa10Scenario];
-    await tryPersistScenarios(cardId, scenarios);
-
-    return toOutlook(cardId, scenarios);
+    await tryPersistScenarios(cardId, outlook.scenarios);
+    return outlook;
   }
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { ResultsDetailScaffold } from "@/components/results/ResultsDetailScaffold";
@@ -13,6 +13,12 @@ import type { CardItem } from "@/types/models";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import { findCollectionCard, resolveResultsDetailBackHref } from "@/features/results/detailRoute";
+import {
+  createEmptyActiveListingsSegments,
+  getDefaultActiveMarketSegment,
+  getSegmentLabel,
+} from "@/services/activeListings/classification";
+import type { ActiveListingsSegments, ActiveMarketSegment } from "@/types";
 
 const ebayLogoImage = require("../../../assets/Ebay Logo.png");
 
@@ -70,9 +76,10 @@ export default function ActiveMarketDetailScreen() {
   const { cards } = useAppState();
   const [result, setResult] = useState<ProcessedScanResult | null>(null);
   const [card, setCard] = useState<CardItem | null>(null);
-  const [rows, setRows] = useState<ActiveListing[]>([]);
+  const [segments, setSegments] = useState<ActiveListingsSegments>(createEmptyActiveListingsSegments);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<ActiveMarketSegment>("raw");
 
   const isCollectionContext = from === "collection";
   const backHref = resolveResultsDetailBackHref({ backTo, isCollectionContext, collectionItemId, resultId: id });
@@ -134,7 +141,7 @@ export default function ActiveMarketDetailScreen() {
         lookupCardId = nextCard.sourceCardId ?? nextCard.correctedCardId ?? nextCard.id;
 
         if (!lookupCardId) {
-          setRows([]);
+          setSegments(createEmptyActiveListingsSegments());
           return;
         }
 
@@ -144,7 +151,7 @@ export default function ActiveMarketDetailScreen() {
         });
 
         if (!active) return;
-        setRows(response.listings);
+        setSegments(response.filteredSegments);
         if (response.error && __DEV__) {
           console.log("[active_market] detail_response_warning", {
             resultId: id,
@@ -173,8 +180,22 @@ export default function ActiveMarketDetailScreen() {
     };
   }, [cards, collectionItemId, id, isCollectionContext]);
 
-  const summary = useMemo(() => {
-    const prices = rows.map((item) => item.price).filter((item) => Number.isFinite(item));
+  useEffect(() => {
+    if (!card) return;
+    setSelectedSegment(getDefaultActiveMarketSegment(card, segments));
+  }, [card, segments]);
+
+  const activeRows = useMemo(() => {
+    const selected = segments[selectedSegment];
+    if (selected.length) return selected;
+    if (segments.raw.length) return segments.raw;
+    if (segments.psa9.length) return segments.psa9;
+    if (segments.psa10.length) return segments.psa10;
+    return segments.otherGraded;
+  }, [segments, selectedSegment]);
+
+  const segmentSummary = useMemo(() => {
+    const prices = activeRows.map((item) => item.price).filter((item) => Number.isFinite(item));
     if (!prices.length) return null;
 
     return {
@@ -182,9 +203,9 @@ export default function ActiveMarketDetailScreen() {
       low: Math.min(...prices),
       high: Math.max(...prices),
       count: prices.length,
-      currency: rows[0]?.currency || "USD"
+      currency: activeRows[0]?.currency || "USD"
     };
-  }, [rows]);
+  }, [activeRows]);
 
   if (loading) {
     return (
@@ -202,9 +223,9 @@ export default function ActiveMarketDetailScreen() {
   }
 
   const referenceValue = Number(card.referenceValue ?? result?.card?.referenceValue ?? 0);
-  const low = summary?.low ?? referenceValue;
-  const high = summary?.high ?? referenceValue;
-  const average = summary?.average ?? referenceValue;
+  const low = segmentSummary?.low ?? referenceValue;
+  const high = segmentSummary?.high ?? referenceValue;
+  const average = segmentSummary?.average ?? referenceValue;
   const referencePos = normalizePosition(referenceValue, low, high);
   const averagePos = normalizePosition(average, low, high);
 
@@ -221,25 +242,44 @@ export default function ActiveMarketDetailScreen() {
         <View style={styles.heroTopRow}>
           <View style={styles.heroCopy}>
             <Text style={styles.heroKicker}>Live ask market</Text>
-            <Text style={styles.heroValue}>{summary ? money(summary.average, summary.currency) : "-"}</Text>
-            <Text style={styles.heroSubcopy}>Average active ask relative to CardAtlas Reference Value</Text>
+            <Text style={styles.heroValue}>{segmentSummary ? money(segmentSummary.average, segmentSummary.currency) : "-"}</Text>
+            <Text style={styles.heroSubcopy}>{getSegmentLabel(selectedSegment)} asks relative to CardAtlas Reference Value</Text>
           </View>
           <View style={styles.heroCount}>
             <Text style={styles.heroCountLabel}>Listings</Text>
-            <Text style={styles.heroCountValue}>{summary?.count ?? 0}</Text>
+            <Text style={styles.heroCountValue}>{segmentSummary?.count ?? 0}</Text>
           </View>
+        </View>
+
+        <View style={styles.segmentedControl}>
+          {(["raw", "psa9", "psa10"] as ActiveMarketSegment[]).map((segment) => {
+            const count = segments[segment].length;
+            const active = selectedSegment === segment;
+            return (
+              <Pressable
+                key={segment}
+                onPress={() => setSelectedSegment(segment)}
+                style={[styles.segmentPill, active && styles.segmentPillActive]}
+              >
+                <Text style={[styles.segmentPillText, active && styles.segmentPillTextActive]}>
+                  {getSegmentLabel(segment)}
+                </Text>
+                <Text style={[styles.segmentCount, active && styles.segmentCountActive]}>{count}</Text>
+              </Pressable>
+            );
+          })}
         </View>
 
         <View style={styles.metricsRow}>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Lowest ask</Text>
-            <Text style={styles.metricValue}>{summary ? money(summary.low, summary.currency) : "-"}</Text>
+            <Text style={styles.metricValue}>{segmentSummary ? money(segmentSummary.low, segmentSummary.currency) : "-"}</Text>
           </View>
           <View style={styles.metricDivider} />
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Ask range</Text>
             <Text style={styles.metricValue}>
-              {summary ? `${money(summary.low, summary.currency)} - ${money(summary.high, summary.currency)}` : "-"}
+              {segmentSummary ? `${money(segmentSummary.low, segmentSummary.currency)} - ${money(segmentSummary.high, segmentSummary.currency)}` : "-"}
             </Text>
           </View>
         </View>
@@ -275,13 +315,24 @@ export default function ActiveMarketDetailScreen() {
           <Ionicons name="pulse-outline" size={14} color={colors.accentPrimary} />
           <Text style={styles.sectionTitle}>Live listings</Text>
         </View>
-        <Text style={styles.sectionMeta}>Current ask feed</Text>
+        <Text style={styles.sectionMeta}>{getSegmentLabel(selectedSegment)} ask feed</Text>
       </View>
 
       <View style={styles.feedSurface}>
-        {rows.map((listing, index) => (
+        {activeRows.map((listing, index) => (
           <Pressable
             key={`${listing.id || listing.sourceListingId || index}`}
+            onPress={() => {
+              const url = listing.itemWebUrl?.trim();
+              if (!url) return;
+              analyticsService.track(ANALYTICS_EVENTS.activeMarketItemTapped, {
+                cardId: card.id,
+                source: listing.source,
+                price: Math.round(listing.price)
+              });
+              void Linking.openURL(url);
+            }}
+            disabled={!listing.itemWebUrl?.trim()}
             style={({ pressed }) => [styles.feedRow, pressed && styles.feedRowPressed]}
           >
             <View style={styles.feedPrimary}>
@@ -300,12 +351,12 @@ export default function ActiveMarketDetailScreen() {
           </Pressable>
         ))}
 
-        {!rows.length ? <Text style={styles.empty}>No active listings are available right now.</Text> : null}
+        {!activeRows.length ? <Text style={styles.empty}>No {getSegmentLabel(selectedSegment).toLowerCase()} active listings are available right now.</Text> : null}
       </View>
 
       <View style={styles.readBlock}>
         <Text style={styles.readLabel}>CardAtlas read</Text>
-        <Text style={styles.readCopy}>{getInsight(referenceValue, rows)}</Text>
+        <Text style={styles.readCopy}>{getInsight(referenceValue, activeRows)}</Text>
       </View>
     </ResultsDetailScaffold>
   );
@@ -375,6 +426,43 @@ const styles = StyleSheet.create({
     ...typography.H3,
     color: "#10161F",
     fontFamily: "Inter-SemiBold"
+  },
+  segmentedControl: {
+    flexDirection: "row",
+    gap: 8
+  },
+  segmentPill: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#E7EBF1",
+    backgroundColor: "#FBFCFE",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  segmentPillActive: {
+    borderColor: "#F0D1CE",
+    backgroundColor: "#FFF5F4"
+  },
+  segmentPillText: {
+    ...typography.Caption,
+    color: "#5F6978",
+    fontFamily: "Inter-Medium"
+  },
+  segmentPillTextActive: {
+    color: colors.accentPrimary,
+    fontFamily: "Inter-SemiBold"
+  },
+  segmentCount: {
+    ...typography.Caption,
+    color: "#8790A0",
+    fontFamily: "Inter-SemiBold"
+  },
+  segmentCountActive: {
+    color: colors.accentPrimary
   },
   metricsRow: {
     flexDirection: "row",

@@ -1,0 +1,88 @@
+name: Tracked Card Snapshots Refresh
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run in dry-run mode"
+        required: false
+        default: true
+        type: boolean
+      force:
+        description: "Force selection even if not due"
+        required: false
+        default: false
+        type: boolean
+      limit:
+        description: "Call budget for this run"
+        required: false
+        default: "25"
+        type: string
+      pool_limit:
+        description: "Candidate pool size"
+        required: false
+        default: "200"
+        type: string
+      environment:
+        description: "Invocation environment label"
+        required: false
+        default: "manual"
+        type: string
+
+jobs:
+  refresh:
+    if: github.event_name == 'workflow_dispatch' || vars.TRACKING_REFRESH_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: tracked-card-snapshots-refresh-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Invoke tracked-card-snapshots-refresh
+        env:
+          TRACKING_REFRESH_URL: ${{ secrets.SUPABASE_TRACKING_REFRESH_URL }}
+          TRACKING_ADMIN_TOKEN: ${{ secrets.TRACKING_ADMIN_TOKEN }}
+          DEFAULT_LIMIT: ${{ vars.TRACKING_REFRESH_LIMIT }}
+          DEFAULT_POOL_LIMIT: ${{ vars.TRACKING_REFRESH_POOL_LIMIT }}
+          APP_ENVIRONMENT: ${{ vars.APP_ENVIRONMENT }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
+          INPUT_FORCE: ${{ github.event.inputs.force }}
+          INPUT_LIMIT: ${{ github.event.inputs.limit }}
+          INPUT_POOL_LIMIT: ${{ github.event.inputs.pool_limit }}
+          INPUT_ENVIRONMENT: ${{ github.event.inputs.environment }}
+        run: |
+          test -n "$TRACKING_REFRESH_URL"
+          test -n "$TRACKING_ADMIN_TOKEN"
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            DRY_RUN_VALUE="${INPUT_DRY_RUN:-true}"
+            FORCE_VALUE="${INPUT_FORCE:-false}"
+            LIMIT_VALUE="${INPUT_LIMIT:-25}"
+            POOL_LIMIT_VALUE="${INPUT_POOL_LIMIT:-200}"
+            ENV_VALUE="${INPUT_ENVIRONMENT:-manual}"
+            SOURCE_VALUE="manual"
+          else
+            DRY_RUN_VALUE="false"
+            FORCE_VALUE="false"
+            LIMIT_VALUE="${DEFAULT_LIMIT:-25}"
+            POOL_LIMIT_VALUE="${DEFAULT_POOL_LIMIT:-200}"
+            ENV_VALUE="${APP_ENVIRONMENT:-production}"
+            SOURCE_VALUE="scheduled"
+          fi
+
+          BODY=$(printf '{"dryRun":%s,"force":%s,"limit":%s,"poolLimit":%s,"environment":"%s","invocationSource":"%s"}' \
+            "$DRY_RUN_VALUE" \
+            "$FORCE_VALUE" \
+            "$LIMIT_VALUE" \
+            "$POOL_LIMIT_VALUE" \
+            "$ENV_VALUE" \
+            "$SOURCE_VALUE")
+
+          curl --fail-with-body \
+            -X POST "$TRACKING_REFRESH_URL" \
+            -H "Content-Type: application/json" \
+            -H "x-admin-token: $TRACKING_ADMIN_TOKEN" \
+            -H "x-scheduled-trigger: true" \
+            -d "$BODY"

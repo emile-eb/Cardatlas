@@ -18,6 +18,11 @@ export interface StructuredCardIdentification {
   };
   referenceValue: number;
   gradedUpside?: number | null;
+  psa10Multiplier?: number | null;
+  psa9Multiplier?: number | null;
+  gradingReason?: string | null;
+  gradingRecommendation?: string | null;
+  gradingConfidence?: "high" | "medium" | "low" | null;
   valueSource: string;
   reviewNeeded: boolean;
   reviewReason: string | null;

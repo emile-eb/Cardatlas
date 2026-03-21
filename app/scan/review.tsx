@@ -7,6 +7,7 @@ import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAppState } from "@/state/AppState";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { pickImageFromDevice } from "@/utils/pickImage";
+import { FullScreenLoading } from "@/components/loading/FullScreenLoading";
 
 type ScanSide = "front" | "back";
 
@@ -112,7 +113,14 @@ export default function ScanReviewScreen() {
   }, [frontDone, backDone, legacyMode]);
 
   if (!legacyMode) {
-    return <View style={styles.redirectFallback} />;
+    return (
+      <FullScreenLoading
+        title="Returning to scanner"
+        message="Opening the active capture flow for this scan."
+        eyebrow="SCAN"
+        icon="camera-outline"
+      />
+    );
   }
 
   const guidanceTitle = useMemo(() => `${sideLabel(activeSide)} of Card`, [activeSide]);
@@ -354,10 +362,6 @@ const styles = StyleSheet.create({
   helper: {
     ...typography.Caption,
     color: colors.textSecondary
-  },
-  redirectFallback: {
-    flex: 1,
-    backgroundColor: colors.backgroundPrimary
   },
   buttons: {
     gap: 10

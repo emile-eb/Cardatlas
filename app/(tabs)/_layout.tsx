@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useAppState } from "@/state/AppState";
 import { colors, typography } from "@/theme/tokens";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function CurvedTabBarBackground() {
   return (
@@ -21,11 +22,16 @@ function CurvedTabBarBackground() {
 export default function TabsLayout() {
   const { startScanOrPaywall } = useAppState();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={({ route }) => ({
         headerShown: false,
+        sceneStyle: {
+          backgroundColor: colors.bg,
+          paddingTop: route.name === "scan" ? 0 : insets.top
+        },
         tabBarActiveTintColor: colors.textPrimary,
         tabBarInactiveTintColor: "#8F95A1",
         tabBarStyle: route.name === "scan" ? styles.tabBarHidden : styles.tabBar,

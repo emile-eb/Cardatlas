@@ -9,6 +9,7 @@ export * from "@/types/grading";
 export * from "@/types/marketPulse";
 export * from "@/types/premium";
 export * from "@/types/processing";
+export * from "@/types/priceHistory";
 export * from "@/types/scan";
 export * from "@/types/storage";
 export * from "@/types/valuation";

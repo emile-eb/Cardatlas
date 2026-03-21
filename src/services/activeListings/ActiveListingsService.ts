@@ -4,6 +4,12 @@ import { mockActiveListingsProvider } from "@/services/activeListings/providers/
 import type { ActiveListingsResponse, ActiveListing, UUID } from "@/types";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import {
+  applyOutlierFilteringToListings,
+  getFilteredActiveListingsSegments,
+  getVisibleActiveListings,
+  groupActiveListingsBySegment
+} from "@/services/activeListings/classification";
 
 function providerMode(): "mock" | "ebay" {
   const value = String(process.env.EXPO_PUBLIC_ACTIVE_LISTINGS_PROVIDER ?? "mock").toLowerCase().trim();
@@ -29,11 +35,23 @@ function summarize(listings: ActiveListing[]) {
   };
 }
 
-function responseFrom(cardId: UUID, listings: ActiveListing[], source: "mock" | "ebay", usedFallback: boolean): ActiveListingsResponse {
+function responseFrom(
+  cardId: UUID,
+  listings: ActiveListing[],
+  source: "mock" | "ebay",
+  usedFallback: boolean,
+  referenceValue?: number
+): ActiveListingsResponse {
+  const preparedListings = applyOutlierFilteringToListings(listings, referenceValue);
+  const segments = groupActiveListingsBySegment(preparedListings);
+  const filteredSegments = getFilteredActiveListingsSegments(segments);
+  const visibleListings = getVisibleActiveListings(filteredSegments);
   return {
     cardId,
-    listings,
-    summary: summarize(listings),
+    listings: preparedListings,
+    segments,
+    filteredSegments,
+    summary: summarize(visibleListings),
     usedFallback,
     stale: false,
     refreshStatus: usedFallback ? "fallback" : "fresh",
@@ -51,7 +69,7 @@ class ActiveListingsServiceImpl implements ActiveListingsService {
       const selected = providerMode() === "ebay" ? ebayActiveListingsProvider : mockActiveListingsProvider;
       const result = await selected.getActiveListings(cardId, options);
       const normalized = normalizeActiveListings(result.items, result.usedMock);
-      return responseFrom(cardId, normalized, result.provider, result.usedMock);
+      return responseFrom(cardId, normalized, result.provider, result.usedMock, options?.referenceValue);
     } catch (error) {
       const fallback = await mockActiveListingsProvider.getActiveListings(cardId, options);
       const normalized = normalizeActiveListings(fallback.items, true);
@@ -69,7 +87,7 @@ class ActiveListingsServiceImpl implements ActiveListingsService {
         });
       }
       return {
-        ...responseFrom(cardId, normalized, "mock", true),
+        ...responseFrom(cardId, normalized, "mock", true, options?.referenceValue),
         error: error instanceof Error ? error.message : "Active listings unavailable"
       };
     }

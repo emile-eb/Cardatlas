@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -26,9 +26,22 @@ type Props = {
   onEditResult?: () => void;
   onReportIncorrect?: () => void;
   isReporting?: boolean;
+  hideCloseButton?: boolean;
+  topSpacerHeight?: number;
+  contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
-export function ResultDetails({ card, sourceScanId, detailBackHref, onEditResult, onReportIncorrect, isReporting }: Props) {
+export function ResultDetails({
+  card,
+  sourceScanId,
+  detailBackHref,
+  onEditResult,
+  onReportIncorrect,
+  isReporting,
+  hideCloseButton = false,
+  topSpacerHeight = 0,
+  contentContainerStyle
+}: Props) {
   const { cards, addCardToCollection, addProcessedScanToCollection, enterAiOrPaywall } = useAppState();
   const insets = useSafeAreaInsets();
   const [heroRevealPulseToken, setHeroRevealPulseToken] = useState(0);
@@ -93,18 +106,22 @@ export function ResultDetails({ card, sourceScanId, detailBackHref, onEditResult
         style={styles.screen}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: isInCollection ? 140 : 220 + insets.bottom }
+          { paddingBottom: isInCollection ? 140 : 220 + insets.bottom },
+          contentContainerStyle
         ]}
       >
-        <Pressable
-          onPress={() => {
-            router.replace("/(tabs)/collection");
-          }}
-          hitSlop={10}
-          style={styles.backBtn}
-        >
-          <Ionicons name="close" size={22} color={colors.textSecondary} />
-        </Pressable>
+        {topSpacerHeight > 0 ? <View style={{ height: topSpacerHeight }} /> : null}
+        {!hideCloseButton ? (
+          <Pressable
+            onPress={() => {
+              router.replace("/(tabs)/collection");
+            }}
+            hitSlop={10}
+            style={styles.backBtn}
+          >
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
+          </Pressable>
+        ) : null}
         <CardIdentityHeader
           card={card}
           auraColor={rarityVisuals.auraColor}
@@ -136,6 +153,7 @@ export function ResultDetails({ card, sourceScanId, detailBackHref, onEditResult
         <View style={styles.marketPreviewStack}>
           <ActiveListingsPanel
             cardId={recentSalesCardId}
+            card={linkedCollectionItem ?? card}
             referenceValue={displayValue}
             maxItems={4}
             onOpenDetails={
@@ -168,6 +186,7 @@ export function ResultDetails({ card, sourceScanId, detailBackHref, onEditResult
           <GradingOutlookPanel
             cardId={recentSalesCardId}
             rawValue={displayValue}
+            sourceScanId={detailCollectionItem?.sourceScanId ?? sourceScanId ?? undefined}
             onOpenDetails={
               detailRouteParams
                 ? () => {

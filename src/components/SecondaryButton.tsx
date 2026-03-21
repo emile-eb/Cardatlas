@@ -6,6 +6,8 @@ type Props = {
   onPress?: () => void;
   disabled?: boolean;
   style?: ViewStyle;
+  pending?: boolean;
+  pendingLabel?: string;
 };
 
 export function SecondaryButton(props: Props) {

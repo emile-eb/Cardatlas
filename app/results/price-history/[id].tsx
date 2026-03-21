@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { ResultsDetailScaffold } from "@/components/results/ResultsDetailScaffold";
 import { ResultsDetailStatusState } from "@/components/results/ResultsDetailStatusState";
@@ -8,38 +8,31 @@ import { scanProcessingService, type ProcessedScanResult } from "@/services/scan
 import { colors, typography } from "@/theme/tokens";
 import {
   PRICE_HISTORY_TIMEFRAMES,
-  enforceUpwardTrend,
+  filterHistoryPoints,
   formatMoney,
-  generateSeries,
-  smoothSeries,
-  toChartPoints,
-  type PriceHistoryTimeframe
+  getHistoryDensity,
+  getHistoryRangeStats,
+  getHistorySupportCopy,
+  getTrendInsight,
+  toChartPoints
 } from "@/features/results/priceHistory";
 import type { CardItem } from "@/types/models";
+import type { PriceHistoryPoint, PriceHistoryTimeframe } from "@/types";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import { findCollectionCard, resolveResultsDetailBackHref } from "@/features/results/detailRoute";
-
-function getTrendInsight(deltaPct: number) {
-  if (Math.abs(deltaPct) < 4) {
-    return "Historical movement has stayed relatively stable, which supports the current CardAtlas Reference Value.";
-  }
-
-  if (deltaPct > 0) {
-    return "Recent price movement has climbed into the current CardAtlas Reference Value and still shows constructive momentum.";
-  }
-
-  return "Recent movement has cooled into the current CardAtlas Reference Value, which suggests softer momentum around the current range.";
-}
+import { priceHistoryService } from "@/services/priceHistory/PriceHistoryService";
 
 export default function PriceHistoryDetailScreen() {
   const { id, from, collectionItemId, backTo } = useLocalSearchParams<{ id: string; from?: string; collectionItemId?: string; backTo?: string }>();
   const { cards } = useAppState();
   const [result, setResult] = useState<ProcessedScanResult | null>(null);
   const [card, setCard] = useState<CardItem | null>(null);
-  const [timeframe, setTimeframe] = useState<PriceHistoryTimeframe>("1M");
+  const [timeframe, setTimeframe] = useState<PriceHistoryTimeframe>("30D");
   const [chartWidth, setChartWidth] = useState(0);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [historyPoints, setHistoryPoints] = useState<PriceHistoryPoint[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
 
   const isCollectionContext = from === "collection";
   const backHref = resolveResultsDetailBackHref({ backTo, isCollectionContext, collectionItemId, resultId: id });
@@ -109,18 +102,54 @@ export default function PriceHistoryDetailScreen() {
     };
   }, [cards, collectionItemId, id, isCollectionContext]);
 
+  const priceHistoryCardId = card?.sourceCardId ?? card?.id ?? null;
+
+  useEffect(() => {
+    let active = true;
+
+    const loadHistory = async () => {
+      if (!priceHistoryCardId) {
+        if (!active) return;
+        setHistoryPoints([]);
+        setHistoryLoading(false);
+        return;
+      }
+
+      try {
+        setHistoryLoading(true);
+        const next = await priceHistoryService.getCardHistory(priceHistoryCardId);
+        if (!active) return;
+        setHistoryPoints(next.points);
+      } catch (error) {
+        if (!active) return;
+        setHistoryPoints([]);
+        setErrorText("We couldn't load stored price history right now. Please try again.");
+        if (__DEV__) {
+          console.log("[price_history] history_load_failed", error);
+        }
+      } finally {
+        if (active) {
+          setHistoryLoading(false);
+        }
+      }
+    };
+
+    void loadHistory();
+    return () => {
+      active = false;
+    };
+  }, [priceHistoryCardId]);
+
   const referenceValue = Number(card?.referenceValue ?? 0);
-  const rawSeries = useMemo(
-    () => generateSeries(card?.sourceCardId ?? card?.id ?? "cardatlas", referenceValue, timeframe),
-    [card?.id, card?.sourceCardId, referenceValue, timeframe]
-  );
-  const visibleSeries = useMemo(() => smoothSeries(enforceUpwardTrend(rawSeries)), [rawSeries]);
+  const visibleHistory = useMemo(() => filterHistoryPoints(historyPoints, timeframe), [historyPoints, timeframe]);
+  const visibleSeries = useMemo(() => visibleHistory.map((point) => point.referenceValue), [visibleHistory]);
   const points = useMemo(() => toChartPoints(visibleSeries, chartWidth, 260), [visibleSeries, chartWidth]);
-  const first = visibleSeries[0] ?? referenceValue;
-  const last = visibleSeries[visibleSeries.length - 1] ?? referenceValue;
-  const deltaPct = first > 0 ? ((last - first) / first) * 100 : 0;
-  const high = Math.max(...visibleSeries);
-  const low = Math.min(...visibleSeries);
+  const stats = useMemo(() => getHistoryRangeStats(visibleHistory), [visibleHistory]);
+  const density = getHistoryDensity(visibleHistory.length);
+  const deltaPct = stats?.deltaPct ?? 0;
+  const high = stats?.max ?? referenceValue;
+  const low = stats?.min ?? referenceValue;
+  const current = stats?.last ?? referenceValue;
 
   if (!card && !errorText) {
     return (
@@ -154,8 +183,14 @@ export default function PriceHistoryDetailScreen() {
         <View style={styles.chartTopRow}>
           <View style={styles.chartCopy}>
             <Text style={styles.chartKicker}>Historical market</Text>
-            <Text style={styles.chartValue}>{deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(1)}%</Text>
-            <Text style={styles.chartSupport}>Period change leading into the current CardAtlas Reference Value</Text>
+            <Text style={styles.chartValue}>
+              {density === "empty" || density === "single" ? "Building" : `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}
+            </Text>
+            <Text style={styles.chartSupport}>
+              {density === "empty"
+                ? "CardAtlas will fill this view as tracked snapshots accumulate."
+                : "Period change leading into the current CardAtlas Reference Value"}
+            </Text>
           </View>
 
           <View style={styles.timeframeWrap}>
@@ -181,42 +216,56 @@ export default function PriceHistoryDetailScreen() {
           <View style={styles.gridLineBottom} />
           <View style={styles.referenceGuide} />
 
-          {points.map((point, index) => (
-            <View
-              key={`${timeframe}-${index}`}
-              style={[
-                styles.chartBar,
-                {
-                  left: point.x,
-                  height: Math.max(28, 260 - point.y),
-                  opacity: index > points.length - 6 ? 0.96 : 0.62
-                }
-              ]}
-            />
-          ))}
+          {historyLoading ? (
+            <View style={styles.stateWrap}>
+              <ActivityIndicator size="small" color={colors.accentPrimary} />
+              <Text style={styles.stateTitle}>Preparing tracked history</Text>
+              <Text style={styles.stateCopy}>Loading stored reference points for this card.</Text>
+            </View>
+          ) : density === "empty" ? (
+            <View style={styles.stateWrap}>
+              <Text style={styles.stateTitle}>No tracked history yet</Text>
+              <Text style={styles.stateCopy}>This card has not accumulated enough saved snapshots to chart yet.</Text>
+            </View>
+          ) : (
+            points.map((point, index) => (
+              <View
+                key={`${timeframe}-${index}`}
+                style={[
+                  styles.chartBar,
+                  {
+                    left: point.x,
+                    height: Math.max(28, 260 - point.y),
+                    opacity: index > points.length - 6 ? 0.96 : 0.62
+                  }
+                ]}
+              />
+            ))
+          )}
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>High</Text>
-            <Text style={styles.statValue}>{formatMoney(high)}</Text>
+            <Text style={styles.statValue}>{density === "empty" ? "—" : formatMoney(high)}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Low</Text>
-            <Text style={styles.statValue}>{formatMoney(low)}</Text>
+            <Text style={styles.statValue}>{density === "empty" ? "—" : formatMoney(low)}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Current</Text>
-            <Text style={styles.statValue}>{formatMoney(last)}</Text>
+            <Text style={styles.statValue}>{density === "empty" ? "—" : formatMoney(current)}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.readBlock}>
         <Text style={styles.readLabel}>CardAtlas read</Text>
-        <Text style={styles.readCopy}>{getTrendInsight(deltaPct)}</Text>
+        <Text style={styles.readCopy}>{getTrendInsight(deltaPct, visibleHistory.length)}</Text>
+        <Text style={styles.readSupport}>{getHistorySupportCopy(visibleHistory.length)}</Text>
       </View>
     </ResultsDetailScaffold>
   );
@@ -341,6 +390,26 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 5,
     backgroundColor: "#1A2230"
   },
+  stateWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+    gap: 8
+  },
+  stateTitle: {
+    ...typography.BodyLarge,
+    color: "#10161F",
+    fontFamily: "Inter-SemiBold",
+    textAlign: "center"
+  },
+  stateCopy: {
+    ...typography.BodyMedium,
+    color: "#5B6575",
+    textAlign: "center",
+    lineHeight: 21,
+    maxWidth: 280
+  },
   statsRow: {
     flexDirection: "row",
     alignItems: "stretch",
@@ -381,5 +450,10 @@ const styles = StyleSheet.create({
     ...typography.BodyMedium,
     color: "#465162",
     lineHeight: 22
+  },
+  readSupport: {
+    ...typography.bodySmall,
+    color: "#6D7686",
+    lineHeight: 19
   }
 });

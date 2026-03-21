@@ -1,45 +1,29 @@
-export type PriceHistoryTimeframe = "1D" | "7D" | "1M" | "YTD" | "1Y";
+import type { PriceHistoryPoint, PriceHistoryTimeframe } from "@/types";
 
 export type ChartPoint = { x: number; y: number };
 
-export const PRICE_HISTORY_TIMEFRAMES: PriceHistoryTimeframe[] = ["1D", "7D", "1M", "YTD", "1Y"];
+export const PRICE_HISTORY_TIMEFRAMES: PriceHistoryTimeframe[] = ["7D", "30D", "90D", "ALL"];
 
-const SERIES_COUNT: Record<PriceHistoryTimeframe, number> = {
-  "1D": 24,
-  "7D": 28,
-  "1M": 30,
-  YTD: 40,
-  "1Y": 52
+const TIMEFRAME_DAYS: Record<Exclude<PriceHistoryTimeframe, "ALL">, number> = {
+  "7D": 7,
+  "30D": 30,
+  "90D": 90
 };
 
 export function formatMoney(value: number): string {
   return `$${Math.round(value).toLocaleString("en-US")}`;
 }
 
-function seededNoise(seed: string, index: number): number {
-  let hash = 0;
-  const key = `${seed}-${index}`;
-  for (let i = 0; i < key.length; i += 1) {
-    hash = (hash << 5) - hash + key.charCodeAt(i);
-    hash |= 0;
-  }
-  return ((Math.abs(hash) % 1000) / 1000) * 2 - 1;
-}
+export function filterHistoryPoints(points: PriceHistoryPoint[], timeframe: PriceHistoryTimeframe): PriceHistoryPoint[] {
+  if (timeframe === "ALL" || points.length <= 1) return points;
 
-export function generateSeries(seed: string, basePrice: number, timeframe: PriceHistoryTimeframe): number[] {
-  const points = SERIES_COUNT[timeframe];
-  const safeBase = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 120;
-  const volatility = timeframe === "1D" ? 0.012 : timeframe === "7D" ? 0.018 : timeframe === "1M" ? 0.022 : timeframe === "YTD" ? 0.03 : 0.04;
-  const trend = timeframe === "1D" ? 0.003 : timeframe === "7D" ? 0.012 : timeframe === "1M" ? 0.018 : timeframe === "YTD" ? 0.035 : 0.06;
+  const latest = points[points.length - 1];
+  if (!latest) return [];
 
-  const values: number[] = [];
-  let value = safeBase * (0.94 + ((Math.abs(seed.length * 13) % 100) / 1000));
-  for (let i = 0; i < points; i += 1) {
-    const noise = seededNoise(seed, i) * volatility;
-    value = value * (1 + trend / points + noise);
-    values.push(Number(value.toFixed(2)));
-  }
-  return values;
+  const days = TIMEFRAME_DAYS[timeframe];
+  const latestTime = Date.parse(latest.snapshotDate);
+  const windowStart = latestTime - (days - 1) * 24 * 60 * 60 * 1000;
+  return points.filter((point) => Date.parse(point.snapshotDate) >= windowStart);
 }
 
 export function toChartPoints(values: number[], width: number, height: number): ChartPoint[] {
@@ -48,39 +32,64 @@ export function toChartPoints(values: number[], width: number, height: number): 
   const max = Math.max(...values);
   const spread = Math.max(max - min, 0.0001);
 
-  return values.map((v, index) => {
+  return values.map((value, index) => {
     const x = (index / Math.max(values.length - 1, 1)) * width;
-    const normalized = (v - min) / spread;
+    const normalized = (value - min) / spread;
     const y = height - normalized * height;
     return { x, y };
   });
 }
 
-export function smoothSeries(values: number[]): number[] {
-  if (values.length < 4) return values;
-  return values.map((_, index) => {
-    const start = Math.max(0, index - 2);
-    const end = Math.min(values.length - 1, index + 2);
-    let sum = 0;
-    let count = 0;
-    for (let i = start; i <= end; i += 1) {
-      sum += values[i];
-      count += 1;
-    }
-    return Number((sum / count).toFixed(2));
-  });
+export function getHistoryDensity(pointsCount: number): "empty" | "single" | "building" | "ready" {
+  if (pointsCount <= 0) return "empty";
+  if (pointsCount === 1) return "single";
+  if (pointsCount <= 4) return "building";
+  return "ready";
 }
 
-export function enforceUpwardTrend(values: number[]): number[] {
-  if (values.length < 2) return values;
+export function getHistoryRangeStats(points: PriceHistoryPoint[]) {
+  if (!points.length) return null;
+
+  const values = points.map((point) => point.referenceValue);
   const first = values[0];
   const last = values[values.length - 1];
-  const minTarget = first * 1.08;
-  if (last >= minTarget) return values;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const deltaPct = first > 0 ? ((last - first) / first) * 100 : 0;
 
-  const neededLift = minTarget - last;
-  return values.map((value, index) => {
-    const factor = index / Math.max(values.length - 1, 1);
-    return Number((value + neededLift * factor).toFixed(2));
-  });
+  return { first, last, min, max, deltaPct };
+}
+
+export function getHistorySupportCopy(pointsCount: number): string {
+  const density = getHistoryDensity(pointsCount);
+  if (density === "empty") {
+    return "Tracked history is not available for this card yet.";
+  }
+  if (density === "single") {
+    return "Tracking has started. The trend will build as more daily snapshots are collected.";
+  }
+  if (density === "building") {
+    return "Tracking is still building for this card, so the early trend is directional rather than complete.";
+  }
+  return "Historical snapshots show how the CardAtlas Reference Value has moved over time.";
+}
+
+export function getTrendInsight(deltaPct: number, pointsCount: number) {
+  const density = getHistoryDensity(pointsCount);
+  if (density === "empty") {
+    return "CardAtlas will build this view as tracked snapshots accumulate for this card.";
+  }
+  if (density === "single") {
+    return "This is the first saved reference point for the card. Trend insight will sharpen as more history is captured.";
+  }
+  if (density === "building") {
+    return "Early tracked history is starting to form around the current CardAtlas Reference Value, but the trend is still developing.";
+  }
+  if (Math.abs(deltaPct) < 4) {
+    return "Historical movement has stayed relatively stable, which supports the current CardAtlas Reference Value.";
+  }
+  if (deltaPct > 0) {
+    return "Recent price movement has climbed into the current CardAtlas Reference Value and still shows constructive momentum.";
+  }
+  return "Recent movement has cooled into the current CardAtlas Reference Value, which suggests softer momentum around the current range.";
 }

@@ -319,6 +319,7 @@ export default function HomeTab() {
                   ) : null}
                 </View>
                 <Text numberOfLines={2} style={styles.marketPulseCardTitle}>{item.title}</Text>
+                {item.subtitle ? <Text numberOfLines={2} style={styles.marketPulseSubtitle}>{item.subtitle}</Text> : null}
                 {item.price != null ? <PriceText value={item.price} style={styles.marketPulsePrice} /> : null}
                 <View style={styles.marketPulseMetaRow}>
                   <Image source={ebayLogoImage} style={styles.marketPulseSourceLogo} resizeMode="contain" />
@@ -651,6 +652,12 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-Medium",
     color: colors.textPrimary,
     minHeight: 34
+  },
+  marketPulseSubtitle: {
+    ...typography.Caption,
+    color: "#6E7888",
+    minHeight: 28,
+    lineHeight: 15
   },
   marketPulsePrice: {
     ...typography.BodyMedium,

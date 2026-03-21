@@ -16,10 +16,20 @@ export interface MarketPulseItem {
   buyingOptions: Record<string, unknown> | null;
   marketplaceId: string | null;
   cardId: UUID | null;
+  year: number | null;
+  brand: string | null;
+  setName: string | null;
+  cardNumber: string | null;
   sport: string | null;
   playerName: string | null;
   team: string | null;
+  referenceValue: number | null;
+  activeMarketAverageAsk: number | null;
+  lowestAsk: number | null;
+  listingCount: number | null;
   pulseReason: MarketPulseReason | null;
+  signalStrengthScore: number | null;
+  lastRefreshedAt: ISODateString | null;
   isMock: boolean;
   sortOrder: number | null;
   rawPayload: Record<string, unknown> | null;
@@ -43,4 +53,3 @@ export interface MarketPulseRefreshResult {
   refreshedAt: ISODateString;
   errorMessage?: string | null;
 }
-

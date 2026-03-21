@@ -3,37 +3,59 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { AppStateProvider } from "@/state/AppState";
 import { AuthProvider, useAuth } from "@/features/auth";
-import { View, ActivityIndicator } from "react-native";
 import { colors } from "@/theme/tokens";
 import { useEffect } from "react";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { FullScreenLoading } from "@/components/loading/FullScreenLoading";
 
 function AppRootNavigator() {
   const { status } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (status === "idle" || status === "loading") {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}>
-        <ActivityIndicator size="small" color={colors.red} />
-      </View>
+      <FullScreenLoading
+        title="Preparing CardAtlas"
+        message="Loading your collector workspace and account state."
+        icon="layers-outline"
+      />
     );
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: {
+          backgroundColor: colors.bg,
+          paddingTop: insets.top
+        }
+      }}
+    >
       <Stack.Screen name="index" />
-      <Stack.Screen name="splash" />
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
-      <Stack.Screen name="processing" options={{ presentation: "transparentModal" }} />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="splash" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
+      <Stack.Screen name="onboarding" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
+      <Stack.Screen
+        name="paywall"
+        options={{ presentation: "modal", contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }}
+      />
+      <Stack.Screen
+        name="processing"
+        options={{ presentation: "transparentModal", contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }}
+      />
+      <Stack.Screen name="(tabs)" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
       <Stack.Screen name="results/[id]" />
-      <Stack.Screen name="chat/[id]" />
+      <Stack.Screen name="results/active-market/[id]" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
+      <Stack.Screen name="results/price-history/[id]" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
+      <Stack.Screen name="results/grading-outlook/[id]" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
+      <Stack.Screen name="chat/[id]" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
       <Stack.Screen name="card/[id]" />
       <Stack.Screen name="collection-search" />
+      <Stack.Screen name="collection/view/[id]" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
       <Stack.Screen name="collection/history" />
       <Stack.Screen name="collection/settings" />
-      <Stack.Screen name="scan/review" />
+      <Stack.Screen name="scan/review" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
     </Stack>
   );
 }
@@ -50,14 +72,27 @@ export default function RootLayout() {
     "Inter-Bold": Inter_700Bold
   });
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <FullScreenLoading
+          title="Loading CardAtlas"
+          message="Preparing the interface and collector tools."
+          icon="sparkles-outline"
+        />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
-    <AuthProvider>
-      <AppStateProvider>
-        <StatusBar style="dark" />
-        <AppRootNavigator />
-      </AppStateProvider>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <AppStateProvider>
+          <StatusBar style="dark" />
+          <AppRootNavigator />
+        </AppStateProvider>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }

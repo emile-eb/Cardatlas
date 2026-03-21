@@ -2,7 +2,6 @@ import { getRequiredSupabaseClient } from "@/lib/supabase/client";
 import { normalizeProviderListings } from "@/services/marketPulse/normalization";
 import type { MarketPulseProvider } from "@/services/marketPulse/providers/MarketPulseProvider";
 import { ebayMarketPulseProvider } from "@/services/marketPulse/providers/EbayMarketPulseProvider";
-import { mockMarketPulseProvider } from "@/services/marketPulse/providers/MockMarketPulseProvider";
 import type { MarketPulseFeedResponse, MarketPulseItem, MarketPulseRefreshResult } from "@/types/marketPulse";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
@@ -17,11 +16,14 @@ function nowIso() {
 }
 
 function modeFromEnv(): "mock" | "ebay" {
-  const raw = String(process.env.EXPO_PUBLIC_MARKET_PULSE_PROVIDER ?? "mock").toLowerCase().trim();
-  return raw === "ebay" ? "ebay" : "mock";
+  const raw = String(process.env.EXPO_PUBLIC_MARKET_PULSE_PROVIDER ?? "ebay").toLowerCase().trim();
+  return raw === "mock" ? "ebay" : "ebay";
 }
 
 function mapRowToItem(row: any): MarketPulseItem {
+  const rawPayload = row.raw_payload ?? null;
+  const cardIdentity = rawPayload?.cardIdentity ?? {};
+  const marketContext = rawPayload?.marketContext ?? {};
   return {
     id: row.id,
     source: row.source,
@@ -36,13 +38,23 @@ function mapRowToItem(row: any): MarketPulseItem {
     buyingOptions: row.buying_options ?? null,
     marketplaceId: row.marketplace_id ?? null,
     cardId: row.card_id ?? null,
+    year: Number(cardIdentity.year ?? 0) || null,
+    brand: cardIdentity.brand ?? null,
+    setName: cardIdentity.setName ?? null,
+    cardNumber: cardIdentity.cardNumber ?? null,
     sport: row.sport ?? null,
     playerName: row.player_name ?? null,
     team: row.team ?? null,
+    referenceValue: marketContext.referenceValue != null ? Number(marketContext.referenceValue) : null,
+    activeMarketAverageAsk: marketContext.activeMarketAverageAsk != null ? Number(marketContext.activeMarketAverageAsk) : null,
+    lowestAsk: marketContext.lowestAsk != null ? Number(marketContext.lowestAsk) : null,
+    listingCount: marketContext.listingCount != null ? Number(marketContext.listingCount) : null,
     pulseReason: row.pulse_reason ?? null,
+    signalStrengthScore: marketContext.pulseScore != null ? Number(marketContext.pulseScore) : null,
+    lastRefreshedAt: marketContext.refreshedAt ?? row.updated_at ?? row.created_at ?? null,
     isMock: Boolean(row.is_mock),
     sortOrder: row.sort_order ?? null,
-    rawPayload: row.raw_payload ?? null,
+    rawPayload,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -53,6 +65,10 @@ function isStale(items: MarketPulseItem[]): boolean {
   const latestTs = Math.max(...items.map((item) => Date.parse(item.updatedAt || item.createdAt || "")));
   if (!Number.isFinite(latestTs)) return true;
   return Date.now() - latestTs >= REFRESH_INTERVAL_MS;
+}
+
+function shouldReplaceMockCache(items: MarketPulseItem[]): boolean {
+  return modeFromEnv() === "ebay" && items.length > 0 && items.every((item) => item.isMock);
 }
 
 export interface MarketPulseService {
@@ -66,11 +82,11 @@ class MarketPulseServiceImpl implements MarketPulseService {
   private volatileItems: MarketPulseItem[] = [];
 
   private selectProvider(): MarketPulseProvider {
-    return modeFromEnv() === "ebay" ? ebayMarketPulseProvider : mockMarketPulseProvider;
+    return ebayMarketPulseProvider;
   }
 
   shouldRefreshMarketPulse(items: MarketPulseItem[]): boolean {
-    return isStale(items);
+    return isStale(items) || shouldReplaceMockCache(items);
   }
 
   private async listCached(limit = DEFAULT_LIMIT): Promise<MarketPulseItem[]> {
@@ -78,26 +94,21 @@ class MarketPulseServiceImpl implements MarketPulseService {
     const { data, error } = await supabase
       .from("market_pulse_items")
       .select("*")
+      .order("updated_at", { ascending: false })
       .order("sort_order", { ascending: true })
       .order("item_origin_date", { ascending: false })
-      .limit(limit);
+      .limit(limit * 3);
 
     if (error) {
       if (__DEV__) console.log("[market_pulse] list cache failed", error.message);
       return [];
     }
-    return (data ?? []).map(mapRowToItem);
-  }
 
-  private async writeListings(rows: any[]): Promise<number> {
-    if (!rows.length) return 0;
-    const supabase = await getRequiredSupabaseClient();
-    const { data, error } = await supabase
-      .from("market_pulse_items")
-      .upsert(rows, { onConflict: "source,source_listing_id" })
-      .select("id");
-    if (error) throw error;
-    return Array.isArray(data) ? data.length : rows.length;
+    const rows = data ?? [];
+    const realFeed = rows.filter((row: any) => row.source === "cardatlas_pulse");
+    const selectedRows = realFeed.length ? realFeed : rows.filter((row: any) => !row.is_mock);
+
+    return selectedRows.slice(0, limit).map(mapRowToItem);
   }
 
   private setVolatileFromRows(rows: any[]) {
@@ -135,6 +146,10 @@ class MarketPulseServiceImpl implements MarketPulseService {
 
     this.refreshPromise = (async () => {
       const selected = this.selectProvider();
+      analyticsService.track(ANALYTICS_EVENTS.marketPulseRefreshStarted, {
+        provider: selected.providerId,
+        limit
+      });
       try {
         const provided = await selected.fetchLatestListings({
           limit,
@@ -143,54 +158,38 @@ class MarketPulseServiceImpl implements MarketPulseService {
         });
         const normalized = normalizeProviderListings(provided.listings);
         this.setVolatileFromRows(normalized);
-        let itemsWritten = 0;
-        try {
-          itemsWritten = await this.writeListings(normalized);
-        } catch (writeError) {
-          if (__DEV__) console.log("[market_pulse] write failed, using volatile cache", writeError);
-          itemsWritten = normalized.length;
-        }
+        const itemsWritten = provided.itemsWritten ?? normalized.length;
+        analyticsService.track(ANALYTICS_EVENTS.marketPulseRefreshCompleted, {
+          provider: provided.source,
+          isMock: provided.isMock,
+          itemsWritten
+        });
+        analyticsService.track(ANALYTICS_EVENTS.marketPulseItemCount, {
+          provider: provided.source,
+          count: normalized.length,
+          isMock: provided.isMock
+        });
         return {
           source: provided.source,
           isMock: provided.isMock,
           itemsWritten,
-          refreshedAt: nowIso()
+          refreshedAt: provided.refreshedAt ?? nowIso(),
+          errorMessage: provided.errorMessage ?? null
         };
       } catch (primaryError) {
         if (__DEV__) console.log("[market_pulse] primary provider failed", primaryError);
-        analyticsService.track(ANALYTICS_EVENTS.providerFallbackUsed, {
-          surface: "market_pulse",
-          provider: modeFromEnv(),
-          reason: primaryError instanceof Error ? primaryError.message : "provider_unavailable"
-        });
-
-        const fallback = await mockMarketPulseProvider.fetchLatestListings({
-          limit,
-          query: DEFAULT_QUERY,
-          marketplaceId: DEFAULT_MARKETPLACE_ID
-        });
-        const normalizedFallback = normalizeProviderListings(fallback.listings);
-        this.setVolatileFromRows(normalizedFallback);
-        let itemsWritten = 0;
-        try {
-          itemsWritten = await this.writeListings(normalizedFallback);
-        } catch (writeError) {
-          if (__DEV__) console.log("[market_pulse] fallback write failed, using volatile cache", writeError);
-          itemsWritten = normalizedFallback.length;
-        }
-        return {
-          source: "mock",
-          isMock: true,
-          itemsWritten,
-          refreshedAt: nowIso(),
-          errorMessage: primaryError instanceof Error ? primaryError.message : "Provider unavailable"
-        };
+        throw primaryError;
       } finally {
         this.refreshPromise = null;
       }
     })();
 
-    return this.refreshPromise;
+    return this.refreshPromise.catch((error) => {
+      analyticsService.track(ANALYTICS_EVENTS.marketPulseRefreshFailed, {
+        reason: error instanceof Error ? error.message : "unknown_error"
+      });
+      throw error;
+    });
   }
 
   async getMarketPulseFeed(limit = DEFAULT_LIMIT): Promise<MarketPulseFeedResponse> {
@@ -210,8 +209,8 @@ class MarketPulseServiceImpl implements MarketPulseService {
       };
     }
 
-    const stale = this.shouldRefreshMarketPulse(cached);
-    if (stale) {
+    const needsRefresh = this.shouldRefreshMarketPulse(cached);
+    if (needsRefresh) {
       void this.refreshMarketPulse(limit);
     }
 
@@ -220,7 +219,7 @@ class MarketPulseServiceImpl implements MarketPulseService {
       source: cached.some((item) => !item.isMock) ? "ebay" : "mock",
       isMock: cached.every((item) => item.isMock),
       refreshedAt: cached[0]?.updatedAt ?? cached[0]?.createdAt ?? null,
-      didTriggerBackgroundRefresh: stale,
+      didTriggerBackgroundRefresh: needsRefresh,
       errorMessage: null
     };
   }
