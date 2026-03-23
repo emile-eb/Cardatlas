@@ -35,7 +35,7 @@ const config: ExpoConfig = {
   name: "CardAtlas",
   slug: "cardlens",
   scheme: "cardlens",
-  version: "2.0.0",
+  version: "1.0.0",
   orientation: "portrait",
   userInterfaceStyle: "light",
   splash: {
@@ -46,7 +46,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: "2"
+    buildNumber: "4"
   },
   plugins,
   experiments: {
