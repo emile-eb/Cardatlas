@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { onboardingSteps } from "@/data/onboardingQuestions";
 import { useAppState } from "@/state/AppState";
 import { colors, layout, spacing, typography } from "@/theme/tokens";
@@ -76,6 +77,7 @@ function IntroScanGraphic() {
 }
 
 export default function OnboardingScreen() {
+  const insets = useSafeAreaInsets();
   const {
     completeOnboarding,
     saveOnboardingProfile,
@@ -172,7 +174,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, spacing.lg) }]}>
         {started ? (
           <Pressable
             style={styles.backBtn}
@@ -261,7 +263,6 @@ const styles = StyleSheet.create({
   },
   topBar: {
     paddingHorizontal: layout.pagePadding,
-    paddingTop: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Image, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAppState } from "@/state/AppState";
@@ -69,6 +70,7 @@ function PhotoTipsModal({ visible, onClose }: { visible: boolean; onClose: () =>
 }
 
 export default function ScanReviewScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ origin?: string; legacy?: string }>();
   const origin = typeof params.origin === "string" ? params.origin : null;
   const legacyMode = params.legacy === "1";
@@ -175,7 +177,7 @@ export default function ScanReviewScreen() {
   };
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: Math.max(insets.top, spacing.md) }]}>
       <View style={styles.header}>
         <Pressable style={styles.iconBtn} onPress={closeToOrigin}>
           <Ionicons name="close" size={20} color={colors.textPrimary} />
@@ -222,7 +224,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundPrimary,
     paddingHorizontal: layout.pagePadding,
-    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
     gap: spacing.md
   },

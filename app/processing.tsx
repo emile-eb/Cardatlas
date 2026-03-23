@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/state/AppState";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { scansService } from "@/services/scans/ScansService";
@@ -39,6 +40,7 @@ function formatScanError(message?: string | null, fallback = "We couldn’t fini
 }
 
 export default function ProcessingScreen() {
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ source?: string; scanId?: string }>();
   const { scanDraft, clearScanDraft, refreshFromBackend } = useAppState();
   const { session } = useAuth();
@@ -306,7 +308,7 @@ export default function ProcessingScreen() {
   const retryLabel = canRetry ? "Retry Processing" : "Try Again";
 
   return (
-    <Animated.View style={[styles.screen, { opacity: contentOpacity }]}>
+    <Animated.View style={[styles.screen, { opacity: contentOpacity, paddingTop: Math.max(insets.top + spacing.lg, 56) }]}>
       <View style={styles.heroBlock}>
         <View style={styles.cardGlow} />
         <Animated.View
@@ -391,8 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundPrimary,
     alignItems: "center",
     justifyContent: "flex-start",
-    padding: layout.pagePadding,
-    paddingTop: 56
+    padding: layout.pagePadding
   },
   heroBlock: {
     width: "100%",
