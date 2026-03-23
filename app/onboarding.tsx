@@ -174,7 +174,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, spacing.lg) }]}>
+      <View style={[styles.topBar, { paddingTop: Math.max(insets.top + spacing.lg, 44) }]}>
         {started ? (
           <Pressable
             style={styles.backBtn}
@@ -204,6 +204,7 @@ export default function OnboardingScreen() {
         style={styles.body}
         contentContainerStyle={[
           styles.bodyContent,
+          { paddingTop: Math.max(insets.top * 0.45, spacing.lg) },
           isIntro && styles.bodyContentIntro
         ]}
       >
