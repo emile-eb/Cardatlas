@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ResultDetails } from "@/components/ResultDetails";
 import { useAppState } from "@/state/AppState";
 import { colors, layout, typography } from "@/theme/tokens";
+import { immersiveTopChromeInset, overlayChromeSpacerHeight } from "@/theme/safeArea";
 import { getCollectionViewerContext } from "@/features/collection/viewerContext";
 
 export default function CollectionViewerScreen() {
@@ -112,7 +113,7 @@ export default function CollectionViewerScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topChrome, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.topChrome, { paddingTop: immersiveTopChromeInset(insets.top) + 10 }]}>
         <Pressable onPress={closeViewer} style={styles.chromeBtn} hitSlop={10}>
           <Ionicons name="close" size={20} color={colors.textPrimary} />
         </Pressable>
@@ -160,7 +161,7 @@ export default function CollectionViewerScreen() {
                 sourceScanId={item.sourceScanId}
                 detailBackHref={`/collection/view/${itemKey}`}
                 hideCloseButton
-                topSpacerHeight={insets.top + 56}
+                topSpacerHeight={overlayChromeSpacerHeight(insets.top, 56)}
                 onEditResult={() => {
                   if (!item.collectionItemId) return;
                   router.push({

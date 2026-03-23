@@ -4,6 +4,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { AppStateProvider } from "@/state/AppState";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { colors } from "@/theme/tokens";
+import { standardTopInset } from "@/theme/safeArea";
 import { useEffect } from "react";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -29,7 +30,7 @@ function AppRootNavigator() {
         headerShown: false,
         contentStyle: {
           backgroundColor: colors.bg,
-          paddingTop: insets.top
+          paddingTop: standardTopInset(insets.top)
         }
       }}
     >

@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
 import { useAppState } from "@/state/AppState";
+import { immersiveTopChromeInset } from "@/theme/safeArea";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { pickImageFromDevice } from "@/utils/pickImage";
 import { FullScreenLoading } from "@/components/loading/FullScreenLoading";
@@ -177,7 +178,7 @@ export default function ScanReviewScreen() {
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: Math.max(insets.top, spacing.md) }]}>
+    <View style={[styles.screen, { paddingTop: immersiveTopChromeInset(insets.top) }]}>
       <View style={styles.header}>
         <Pressable style={styles.iconBtn} onPress={closeToOrigin}>
           <Ionicons name="close" size={20} color={colors.textPrimary} />

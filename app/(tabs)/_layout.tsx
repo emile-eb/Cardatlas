@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useAppState } from "@/state/AppState";
 import { colors, typography } from "@/theme/tokens";
+import { standardTopInset } from "@/theme/safeArea";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 function CurvedTabBarBackground() {
@@ -30,7 +31,7 @@ export default function TabsLayout() {
         headerShown: false,
         sceneStyle: {
           backgroundColor: colors.bg,
-          paddingTop: route.name === "scan" ? 0 : insets.top
+          paddingTop: route.name === "scan" ? 0 : standardTopInset(insets.top)
         },
         tabBarActiveTintColor: colors.textPrimary,
         tabBarInactiveTintColor: "#8F95A1",

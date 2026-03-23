@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { onboardingSteps } from "@/data/onboardingQuestions";
 import { useAppState } from "@/state/AppState";
+import { guidedFlowBodyTopInset, guidedFlowTopInset } from "@/theme/safeArea";
 import { colors, layout, spacing, typography } from "@/theme/tokens";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { QuestionOption } from "@/components/onboarding/QuestionOption";
@@ -174,7 +175,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top + spacing.lg, 44) }]}>
+      <View style={[styles.topBar, { paddingTop: guidedFlowTopInset(insets.top) }]}>
         {started ? (
           <Pressable
             style={styles.backBtn}
@@ -204,7 +205,7 @@ export default function OnboardingScreen() {
         style={styles.body}
         contentContainerStyle={[
           styles.bodyContent,
-          { paddingTop: Math.max(insets.top * 0.45, spacing.lg) },
+          { paddingTop: guidedFlowBodyTopInset(insets.top) },
           isIntro && styles.bodyContentIntro
         ]}
       >
@@ -272,16 +273,16 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     alignItems: "center",
     justifyContent: "center",
-    width: 32,
-    height: 32,
+    width: 40,
+    height: 40,
     borderWidth: 1,
     borderColor: "#E6E6E6",
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: "#FCFCFC"
   },
   backSpacer: {
-    width: 72,
-    height: 32
+    width: 80,
+    height: 40
   },
   progressWrap: {
     flex: 1

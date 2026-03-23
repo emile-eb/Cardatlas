@@ -2,6 +2,7 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { immersiveTopChromeInset } from "@/theme/safeArea";
 import { typography } from "@/theme/tokens";
 import type { PaywallVariantContent } from "@/features/paywall/paywallVariants";
 
@@ -25,7 +26,7 @@ export function PaywallHero({
           locations={[0, 0.48, 1]}
           style={styles.overlay}
         >
-          <View style={[styles.topRow, { paddingTop: Math.max(insets.top, 14) }]}>
+          <View style={[styles.topRow, { paddingTop: immersiveTopChromeInset(insets.top) }]}>
             <Text style={styles.brandText}>CardAtlas</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={18} color="#E4E8EF" />

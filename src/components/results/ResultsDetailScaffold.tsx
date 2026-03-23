@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { immersiveTopChromeInset } from "@/theme/safeArea";
 import { colors, layout, typography } from "@/theme/tokens";
 import type { CardItem } from "@/types/models";
 
@@ -28,7 +29,7 @@ export function ResultsDetailScaffold({
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.chrome, { paddingTop: Math.max(insets.top, 14) }]}>
+      <View style={[styles.chrome, { paddingTop: immersiveTopChromeInset(insets.top) }]}>
         <Pressable onPress={() => router.replace((backHref ?? `/results/${resultId}`) as any)} style={styles.chromeBtn}>
           <Ionicons name="chevron-back" size={18} color="#151B24" />
         </Pressable>

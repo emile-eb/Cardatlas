@@ -4,6 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/state/AppState";
+import { guidedFlowTopInset } from "@/theme/safeArea";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { scansService } from "@/services/scans/ScansService";
 import { scanProcessingService } from "@/services/scans/ScanProcessingService";
@@ -308,7 +309,7 @@ export default function ProcessingScreen() {
   const retryLabel = canRetry ? "Retry Processing" : "Try Again";
 
   return (
-    <Animated.View style={[styles.screen, { opacity: contentOpacity, paddingTop: Math.max(insets.top + spacing.lg, 56) }]}>
+    <Animated.View style={[styles.screen, { opacity: contentOpacity, paddingTop: guidedFlowTopInset(insets.top) }]}>
       <View style={styles.heroBlock}>
         <View style={styles.cardGlow} />
         <Animated.View
