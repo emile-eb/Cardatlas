@@ -46,7 +46,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: "9"
+    buildNumber: "10"
   },
   plugins,
   experiments: {
