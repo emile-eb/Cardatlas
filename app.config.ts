@@ -50,7 +50,7 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: "10"
+    buildNumber: "11"
   },
   android: {
     package: bundleIdentifier
