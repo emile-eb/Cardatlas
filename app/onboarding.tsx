@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { onboardingSteps } from "@/data/onboardingQuestions";
 import { useAppState } from "@/state/AppState";
-import { guidedFlowBodyTopInset, guidedFlowTopInset } from "@/theme/safeArea";
+import { guidedFlowBodyTopInset, standardTopInset } from "@/theme/safeArea";
 import { colors, layout, spacing, typography } from "@/theme/tokens";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { QuestionOption } from "@/components/onboarding/QuestionOption";
@@ -204,7 +204,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={styles.screen}>
-      <View style={[styles.topBar, { paddingTop: guidedFlowTopInset(insets.top) }]}>
+      <View style={[styles.topBar, { paddingTop: standardTopInset(insets.top) + layout.pagePadding }]}>
         {started ? (
           <Pressable
             style={styles.backBtn}

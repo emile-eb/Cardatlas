@@ -2,8 +2,8 @@ import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { immersiveTopChromeInset } from "@/theme/safeArea";
-import { typography } from "@/theme/tokens";
+import { standardTopInset } from "@/theme/safeArea";
+import { layout, typography } from "@/theme/tokens";
 import type { PaywallVariantContent } from "@/features/paywall/paywallVariants";
 
 const HERO_IMAGE = require("../../../assets/New Paywall Hero.png");
@@ -26,7 +26,7 @@ export function PaywallHero({
           locations={[0, 0.48, 1]}
           style={styles.overlay}
         >
-          <View style={[styles.topRow, { paddingTop: immersiveTopChromeInset(insets.top) }]}>
+          <View style={[styles.topRow, { paddingTop: standardTopInset(insets.top) + layout.pagePadding }]}>
             <Text style={styles.brandText}>CardAtlas</Text>
             <Pressable onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={18} color="#E4E8EF" />

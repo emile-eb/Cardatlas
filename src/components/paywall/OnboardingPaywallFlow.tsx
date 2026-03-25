@@ -2,11 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingPaywallCTA } from "@/components/paywall/onboarding/OnboardingPaywallCTA";
 import { OnboardingPaywallHeroPlaceholder } from "@/components/paywall/onboarding/OnboardingPaywallHeroPlaceholder";
 import { OnboardingPaywallPlanSelector } from "@/components/paywall/onboarding/OnboardingPaywallPlanSelector";
 import type { PaywallPlanViewModel } from "@/types";
-import { typography } from "@/theme/tokens";
+import { standardTopInset } from "@/theme/safeArea";
+import { layout, typography } from "@/theme/tokens";
 
 type OnboardingPaywallFlowProps = {
   loading: boolean;
@@ -142,6 +144,7 @@ export function OnboardingPaywallFlow({
   onRestore,
   onClose
 }: OnboardingPaywallFlowProps) {
+  const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [stepIndex, setStepIndex] = useState(0);
   const transition = useRef(new Animated.Value(1)).current;
@@ -179,7 +182,7 @@ export function OnboardingPaywallFlow({
   return (
     <View style={styles.screen}>
       <LinearGradient colors={["#FEFDFC", "#FFFFFF", "#F8F9FB"]} locations={[0, 0.42, 1]} style={styles.background}>
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { paddingTop: standardTopInset(insets.top) + layout.pagePadding }]}>
           <Pressable onPress={goBack} style={styles.navButton} disabled={stepIndex === 0}>
             <Ionicons
               name="chevron-back"
