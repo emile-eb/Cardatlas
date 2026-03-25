@@ -85,16 +85,11 @@ export function PriceHistoryPanel({ cardId, referenceValue, onOpenDetails }: Pro
   const visibleValues = useMemo(() => visiblePoints.map((point) => point.referenceValue), [visiblePoints]);
   const stats = useMemo(() => getHistoryRangeStats(visiblePoints), [visiblePoints]);
   const density = getHistoryDensity(visiblePoints.length);
-  const deltaPct = stats?.deltaPct ?? 0;
-  const deltaText = density === "empty" || density === "single" ? "Building" : `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`;
-  const deltaColor = density === "ready" || density === "building" ? (deltaPct >= 0 ? "#1F7A45" : colors.accentPrimary) : "#7B8493";
   const points = useMemo(() => toChartPoints(visibleValues, chartWidth, chartHeight), [visibleValues, chartWidth]);
 
   const onChartLayout = (event: LayoutChangeEvent) => {
     setChartWidth(event.nativeEvent.layout.width);
   };
-  const minValue = stats?.min ?? referenceValue;
-  const maxValue = stats?.max ?? referenceValue;
 
   return (
     <Panel style={styles.panel}>
@@ -104,103 +99,95 @@ export function PriceHistoryPanel({ cardId, referenceValue, onOpenDetails }: Pro
         onPressAction={onOpenDetails}
       />
 
-      <View style={styles.marketSummaryStrip}>
-        <View style={styles.marketSummaryCell}>
-          <Text style={styles.marketSummaryLabel}>Current Ref</Text>
-          <Text style={styles.marketSummaryValue}>{money(stats?.last ?? referenceValue)}</Text>
+      {premium ? (
+        <View style={styles.chartWrap} onLayout={onChartLayout}>
+          <View style={styles.chartTone} />
+          <View style={styles.chartGlow} pointerEvents="none" />
+          <View style={styles.axisY} />
+          <View style={styles.axisX} />
+
+          {loading ? (
+            <View style={styles.stateWrap}>
+              <ActivityIndicator size="small" color={colors.accentPrimary} />
+              <Text style={styles.stateTitle}>Preparing tracked history</Text>
+              <Text style={styles.stateCopy}>Loading saved reference points for this card.</Text>
+            </View>
+          ) : historyError ? (
+            <View style={styles.stateWrap}>
+              <Text style={styles.stateTitle}>History unavailable</Text>
+              <Text style={styles.stateCopy}>{historyError}</Text>
+            </View>
+          ) : density === "empty" ? (
+            <View style={styles.stateWrap}>
+              <Text style={styles.stateTitle}>No tracked history yet</Text>
+              <Text style={styles.stateCopy}>CardAtlas will start filling this timeline as snapshots accumulate for this card.</Text>
+            </View>
+          ) : (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.lineLayer,
+                {
+                  opacity: chartAnim.interpolate({ inputRange: [0, 1], outputRange: [0.28, 1] }),
+                  transform: [
+                    {
+                      translateX: chartAnim.interpolate({ inputRange: [0, 1], outputRange: [9, 0] })
+                    }
+                  ]
+                }
+              ]}
+            >
+              <View style={styles.chartBarsRow}>
+                {points.map((point, index) => (
+                  <View
+                    key={`${timeframe}-${index}`}
+                    style={[
+                      styles.chartBar,
+                      {
+                        left: point.x,
+                        height: Math.max(18, chartHeight - point.y),
+                        opacity: 0.88
+                      }
+                    ]}
+                  />
+                ))}
+              </View>
+            </Animated.View>
+          )}
         </View>
-        <View style={[styles.marketSummaryCell, styles.marketSummaryDivider]}>
-          <Text style={styles.marketSummaryLabel}>Range</Text>
-          <Text style={styles.marketSummaryValue}>
-            {density === "empty" ? "Not tracked yet" : `${money(minValue)} - ${money(maxValue)}`}
+      ) : (
+        <View style={styles.lockStandaloneCard}>
+          <View style={styles.lockPromptIconWrap}>
+            <Ionicons name="trending-up-outline" size={16} color={colors.accentPrimary} />
+          </View>
+          <Text style={styles.lockPromptTitle}>Unlock Price History</Text>
+          <Text style={styles.lockPromptSubtitle}>
+            See how this card's value moves over time and spot trends before you buy, hold, or sell.
+          </Text>
+          <Pressable
+            onPress={() => {
+              analyticsService.track(ANALYTICS_EVENTS.priceHistoryUpgradeTapped, {
+                cardId: cardId ?? undefined,
+                timeframe
+              });
+              presentPaywall("premium_feature_gate", cardId ? { cardId } : undefined);
+            }}
+            style={({ pressed }) => [styles.lockPromptBtn, pressed && styles.lockPromptBtnPressed]}
+          >
+            <Text style={styles.lockPromptBtnText}>Upgrade</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {!loading && premium ? (
+        <View style={styles.supportCard}>
+          <Text style={styles.supportText}>
+            {historyError
+              ? "Price history couldn't be loaded right now."
+              : getHistorySupportCopy(visiblePoints.length)}
           </Text>
         </View>
-        <View style={[styles.marketSummaryCell, styles.marketSummaryDivider]}>
-          <Text style={styles.marketSummaryLabel}>{timeframe}</Text>
-          <Text style={[styles.marketSummaryValue, { color: deltaColor }]}>{deltaText}</Text>
-        </View>
-      </View>
-
-      <View style={styles.chartWrap} onLayout={onChartLayout}>
-        <View style={styles.chartTone} />
-        <View style={styles.axisY} />
-        <View style={styles.axisX} />
-
-        {loading ? (
-          <View style={styles.stateWrap}>
-            <ActivityIndicator size="small" color={colors.accentPrimary} />
-            <Text style={styles.stateTitle}>Preparing tracked history</Text>
-            <Text style={styles.stateCopy}>Loading saved reference points for this card.</Text>
-          </View>
-        ) : historyError ? (
-          <View style={styles.stateWrap}>
-            <Text style={styles.stateTitle}>History unavailable</Text>
-            <Text style={styles.stateCopy}>{historyError}</Text>
-          </View>
-        ) : density === "empty" ? (
-          <View style={styles.stateWrap}>
-            <Text style={styles.stateTitle}>No tracked history yet</Text>
-            <Text style={styles.stateCopy}>CardAtlas will start filling this timeline as snapshots accumulate for this card.</Text>
-          </View>
-        ) : (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.lineLayer,
-              {
-                opacity: chartAnim.interpolate({ inputRange: [0, 1], outputRange: [0.28, premium ? 1 : 0.7] }),
-                transform: [
-                  {
-                    translateX: chartAnim.interpolate({ inputRange: [0, 1], outputRange: [9, 0] })
-                  }
-                ]
-              }
-            ]}
-          >
-            <View style={styles.chartBarsRow}>
-              {points.map((point, index) => (
-                <View
-                  key={`${timeframe}-${index}`}
-                  style={[
-                    styles.chartBar,
-                    {
-                      left: point.x,
-                      height: Math.max(18, chartHeight - point.y),
-                      opacity: premium ? 0.88 : 0.5
-                    }
-                  ]}
-                />
-              ))}
-            </View>
-          </Animated.View>
-        )}
-
-        {!premium && density !== "empty" && !loading && !historyError ? (
-          <View style={styles.lockOverlay}>
-            <View style={styles.lockPromptCard}>
-              <View style={styles.lockPromptIconWrap}>
-                <Ionicons name="trending-up-outline" size={14} color={colors.accentPrimary} />
-              </View>
-              <Text style={styles.lockPromptTitle}>Unlock Price History</Text>
-              <Text style={styles.lockPromptSubtitle}>View market movement over time for this card.</Text>
-              <Pressable
-                onPress={() => {
-                  analyticsService.track(ANALYTICS_EVENTS.priceHistoryUpgradeTapped, {
-                    cardId: cardId ?? undefined,
-                    timeframe
-                  });
-                  presentPaywall("premium_feature_gate", cardId ? { cardId } : undefined);
-                }}
-                style={({ pressed }) => [styles.lockPromptBtn, pressed && styles.lockPromptBtnPressed]}
-              >
-                <Text style={styles.lockPromptBtnText}>Upgrade</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
-      </View>
-
-      {!loading && !historyError ? <Text style={styles.supportText}>{getHistorySupportCopy(visiblePoints.length)}</Text> : null}
+      ) : null}
 
       <View style={styles.timeframeRow}>
         {PRICE_HISTORY_TIMEFRAMES.map((tf) => (
@@ -224,64 +211,55 @@ export function PriceHistoryPanel({ cardId, referenceValue, onOpenDetails }: Pro
 
 const styles = StyleSheet.create({
   panel: {
-    borderColor: "#E6EAF0",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 12
-  },
-  marketSummaryStrip: {
-    borderWidth: 1,
-    borderColor: "#E8ECF2",
-    borderRadius: 12,
-    flexDirection: "row",
-    backgroundColor: "#FBFCFE",
-    paddingHorizontal: 4,
-    marginBottom: 12
-  },
-  marketSummaryCell: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 10
-  },
-  marketSummaryDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: "#EEF2F6"
-  },
-  marketSummaryLabel: {
-    ...typography.Caption,
-    color: "#727B8B"
-  },
-  marketSummaryValue: {
-    ...typography.BodyMedium,
-    color: "#11151D",
-    fontFamily: "Inter-SemiBold"
+    borderColor: "#E5E9F0",
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: "#FCFDFE",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 6 },
+    shadowRadius: 18,
+    elevation: 2
   },
   chartWrap: {
     position: "relative",
     height: 144,
-    borderRadius: 0,
-    backgroundColor: "transparent",
-    overflow: "hidden"
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#EEF2F7",
+    marginTop: 10
   },
   chartTone: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#FFFFFF"
+    backgroundColor: "#FBFCFE"
+  },
+  chartGlow: {
+    position: "absolute",
+    top: -32,
+    right: -18,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    backgroundColor: "rgba(225, 6, 0, 0.06)"
   },
   axisY: {
     position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
+    left: 14,
+    top: 16,
+    bottom: 14,
     width: 1,
-    backgroundColor: "#C7CFDB"
+    backgroundColor: "#D8E0EA"
   },
   axisX: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
+    left: 14,
+    right: 14,
+    bottom: 14,
     height: 1,
-    backgroundColor: "#C7CFDB"
+    backgroundColor: "#D8E0EA"
   },
   lineLayer: {
     ...StyleSheet.absoluteFillObject
@@ -291,12 +269,12 @@ const styles = StyleSheet.create({
   },
   chartBar: {
     position: "absolute",
-    bottom: 1,
+    bottom: 15,
     width: 4,
     marginLeft: -2,
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
-    backgroundColor: "#C9D2DE"
+    backgroundColor: "#C7D2E1"
   },
   stateWrap: {
     ...StyleSheet.absoluteFillObject,
@@ -317,67 +295,77 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 17
   },
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(251,252,254,0.62)",
-    borderRadius: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10
-  },
-  lockPromptCard: {
+  lockStandaloneCard: {
     width: "100%",
-    maxWidth: 208,
     borderWidth: 1,
-    borderColor: "#ECEFF4",
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.94)",
+    borderColor: "#E8EDF4",
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 5
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 10,
+    shadowColor: "#111827",
+    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 1
   },
   lockPromptIconWrap: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "#F0D0CD",
     backgroundColor: "#FFF7F6",
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    marginBottom: 2
   },
   lockPromptTitle: {
-    ...typography.BodyMedium,
+    ...typography.BodyLarge,
     color: "#11151D",
     fontFamily: "Inter-SemiBold",
-    textAlign: "center"
+    textAlign: "center",
+    lineHeight: 24
   },
   lockPromptSubtitle: {
-    ...typography.bodySmall,
-    color: "#6D7686",
+    ...typography.BodyMedium,
+    color: "#697385",
     textAlign: "center",
-    lineHeight: 16
+    lineHeight: 21,
+    maxWidth: 260
   },
   lockPromptBtn: {
-    marginTop: 0,
-    paddingHorizontal: 7,
-    paddingVertical: 2
+    marginTop: 6,
+    minWidth: 188,
+    borderRadius: 10,
+    backgroundColor: colors.accentPrimary,
+    paddingHorizontal: 22,
+    paddingVertical: 11
   },
   lockPromptBtnPressed: {
     opacity: 0.82
   },
   lockPromptBtnText: {
-    ...typography.Caption,
-    color: colors.accentPrimary,
+    ...typography.bodySmall,
+    color: "#FFFFFF",
     fontFamily: "Inter-SemiBold",
-    fontSize: 10
+    textAlign: "center"
+  },
+  supportCard: {
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#E9EDF3",
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingVertical: 10
   },
   supportText: {
     ...typography.bodySmall,
-    color: "#6D7686",
-    marginTop: 10,
+    color: "#657082",
     lineHeight: 18
   },
   timeframeRow: {

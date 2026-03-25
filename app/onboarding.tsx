@@ -12,6 +12,8 @@ import { MultiSelectOption } from "@/components/onboarding/MultiSelectOption";
 import { OnboardingFooterCTA } from "@/components/onboarding/OnboardingFooterCTA";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
+import { useNotifications } from "@/features/notifications/NotificationsProvider";
 
 type AnswerMap = Record<string, string[]>;
 
@@ -24,6 +26,10 @@ function applyAnswerToProfile(stepId: string, values: string[]) {
   if (stepId === "brands") return { brands: values };
   if (stepId === "alerts") return { alerts: values[0] };
   return {};
+}
+
+function shouldRequestNotifications(alertsAnswer?: string) {
+  return Boolean(alertsAnswer && alertsAnswer !== "No alerts for now");
 }
 
 function IntroScanGraphic() {
@@ -85,6 +91,14 @@ export default function OnboardingScreen() {
     onboardingProfile,
     presentPaywall
   } = useAppState();
+  const {
+    setNotificationsEnabled,
+    setMarketActivityEnabled,
+    setCollectionUpdatesEnabled,
+    setRemindersEnabled,
+    setHasPromptedForNotifications
+  } = useAppPreferences();
+  const { requestPermissionInContext } = useNotifications();
 
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
@@ -150,7 +164,7 @@ export default function OnboardingScreen() {
     });
   };
 
-  const onContinue = () => {
+  const onContinue = async () => {
     if (!canContinue) return;
 
     if (!started) {
@@ -165,6 +179,21 @@ export default function OnboardingScreen() {
     }
 
     if (isLastFlowStep) {
+      const alertsAnswer = step.id === "alerts" ? selected[0] : undefined;
+      if (shouldRequestNotifications(alertsAnswer)) {
+        await setNotificationsEnabled(true);
+        await setMarketActivityEnabled(true);
+        await setCollectionUpdatesEnabled(true);
+        await setRemindersEnabled(true);
+        const permission = await requestPermissionInContext("onboarding");
+        if (permission !== "granted") {
+          await setNotificationsEnabled(false);
+        }
+      } else if (step.id === "alerts") {
+        await setNotificationsEnabled(false);
+        await setHasPromptedForNotifications(true);
+      }
+
       completeOnboarding();
       presentPaywall("onboarding", { replace: true });
       return;

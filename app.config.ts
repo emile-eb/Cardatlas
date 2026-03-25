@@ -3,9 +3,13 @@ import type { ExpoConfig } from "expo/config";
 const metaAppId = process.env.EXPO_PUBLIC_META_APP_ID ?? "";
 const metaClientToken = process.env.EXPO_PUBLIC_META_CLIENT_TOKEN ?? "";
 const bundleIdentifier = process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ?? "com.cardatlas.app";
+const expoProjectId =
+  process.env.EXPO_PUBLIC_EXPO_PROJECT_ID ??
+  "784382dd-1eb7-4598-b5ff-4b3315fd14c8";
 
 const plugins: NonNullable<ExpoConfig["plugins"]> = [
   "expo-router",
+  "expo-notifications",
   [
     "expo-camera",
     {
@@ -48,7 +52,15 @@ const config: ExpoConfig = {
     bundleIdentifier,
     buildNumber: "10"
   },
+  android: {
+    package: bundleIdentifier
+  },
   plugins,
+  extra: {
+    eas: {
+      projectId: expoProjectId
+    }
+  },
   experiments: {
     typedRoutes: true
   }

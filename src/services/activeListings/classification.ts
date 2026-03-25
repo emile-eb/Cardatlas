@@ -79,13 +79,6 @@ function classifyPsa9(normalizedTitle: string): ListingClassification | null {
       classificationReason: "matched_exact_psa9"
     };
   }
-  if (/\bpsa\b/.test(normalizedTitle) && /\bmint 9\b/.test(normalizedTitle)) {
-    return {
-      marketSegment: "psa9",
-      classificationConfidence: "medium",
-      classificationReason: "matched_psa_mint_9"
-    };
-  }
   return null;
 }
 

@@ -16,9 +16,11 @@ import {
   getVisibleActiveListings,
   getSegmentLabel,
 } from "@/services/activeListings/classification";
+import type { ActiveMarketDebugTrace } from "@/services/activeListings/types";
 import type { ActiveListingsSegments } from "@/types";
 
 const ebayLogoImage = require("../../assets/Ebay Logo.png");
+const DEFAULT_DEBUG_CARD_ID = "3d41362f-4033-4cc7-9077-5ef9a7cec50e";
 
 type Props = {
   cardId?: UUID | null;
@@ -91,6 +93,29 @@ export function ActiveListingsPanel({ cardId, card, referenceValue, maxItems = 5
   const [usedFallback, setUsedFallback] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
   const fetchWindow = Math.max(maxItems * 3, 12);
+  const debugTrace = useMemo<ActiveMarketDebugTrace | undefined>(() => {
+    if (!cardId) return undefined;
+    const debugCardId = String(process.env.EXPO_PUBLIC_ACTIVE_MARKET_DEBUG_CARD_ID ?? DEFAULT_DEBUG_CARD_ID).trim();
+    const enabled = debugCardId === cardId;
+    return {
+      requestId: `am-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      enabled,
+      inspectRejected: enabled,
+      requestOrigin: "panel"
+    };
+  }, [cardId]);
+
+  useEffect(() => {
+    if (!__DEV__ || !debugTrace) return;
+    console.log("[active_market_panel] request_start", {
+      requestId: debugTrace.requestId,
+      cardId,
+      debugEnabled: debugTrace.enabled === true,
+      maxItems,
+      fetchWindow,
+      referenceValue
+    });
+  }, [cardId, debugTrace, fetchWindow, maxItems, referenceValue]);
 
   useEffect(() => {
     let active = true;
@@ -107,7 +132,8 @@ export function ActiveListingsPanel({ cardId, card, referenceValue, maxItems = 5
       try {
         const response = await activeListingsService.getDisplayActiveListings(cardId, {
           referenceValue,
-          maxItems: fetchWindow
+          maxItems: fetchWindow,
+          debugTrace
         });
         if (!active) return;
         setSegments({
@@ -119,11 +145,33 @@ export function ActiveListingsPanel({ cardId, card, referenceValue, maxItems = 5
         });
         setUsedFallback(response.usedFallback);
         setServiceError(response.error ?? null);
+        if (__DEV__ && debugTrace) {
+          console.log("[active_market_panel] request_complete", {
+            requestId: debugTrace.requestId,
+            cardId,
+            filteredCounts: {
+              raw: response.filteredSegments.raw.length,
+              psa9: response.filteredSegments.psa9.length,
+              psa10: response.filteredSegments.psa10.length,
+              otherGraded: response.filteredSegments.otherGraded.length,
+              excluded: response.filteredSegments.excluded.length
+            },
+            usedFallback: response.usedFallback,
+            error: response.error ?? null
+          });
+        }
       } catch (error) {
         if (!active) return;
         setSegments(createEmptyActiveListingsSegments());
         setUsedFallback(false);
         setServiceError(error instanceof Error ? error.message : "Active listings unavailable.");
+        if (__DEV__ && debugTrace) {
+          console.log("[active_market_panel] request_error", {
+            requestId: debugTrace.requestId,
+            cardId,
+            error: error instanceof Error ? error.message : "Active listings unavailable."
+          });
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -133,7 +181,7 @@ export function ActiveListingsPanel({ cardId, card, referenceValue, maxItems = 5
     return () => {
       active = false;
     };
-  }, [cardId, referenceValue, fetchWindow]);
+  }, [cardId, referenceValue, fetchWindow, debugTrace]);
 
   const segmentedRows = useMemo(() => {
     const defaultSegment = getDefaultActiveMarketSegment(card, segments);

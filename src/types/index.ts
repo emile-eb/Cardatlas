@@ -7,6 +7,7 @@ export * from "@/types/db";
 export * from "@/types/domain";
 export * from "@/types/grading";
 export * from "@/types/marketPulse";
+export * from "@/types/notifications";
 export * from "@/types/premium";
 export * from "@/types/processing";
 export * from "@/types/priceHistory";

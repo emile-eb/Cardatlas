@@ -30,12 +30,35 @@ export interface UsageStateRow {
 export interface UserDevicesRow {
   id: UUID;
   user_id: UUID;
+  device_id: string | null;
   platform: "ios" | "android" | "web";
   device_name: string | null;
   app_version: string | null;
   expo_push_token: string | null;
+  notifications_enabled: boolean;
+  market_activity_enabled: boolean;
+  collection_updates_enabled: boolean;
+  reminders_enabled: boolean;
+  permission_status: "undetermined" | "granted" | "denied" | "unsupported" | string;
+  push_token_status: "active" | "invalid" | "missing" | string;
+  push_token_registered_at: ISODateString | null;
+  last_error_text: string | null;
   last_seen_at: ISODateString;
   created_at: ISODateString;
+  updated_at?: ISODateString | null;
+}
+
+export interface NotificationEventsRow {
+  id: UUID;
+  user_id: UUID;
+  card_id: UUID | null;
+  notification_type: string;
+  dedupe_key: string;
+  payload_json: Record<string, unknown> | null;
+  status: "queued" | "sent" | "failed" | "skipped" | string;
+  sent_at: ISODateString | null;
+  created_at: ISODateString;
+  updated_at?: ISODateString | null;
 }
 
 export interface OnboardingAnswersRow {

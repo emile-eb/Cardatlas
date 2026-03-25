@@ -29,10 +29,19 @@ export interface UserProfile {
 export interface UserDevice {
   id: UserDevicesRow["id"];
   userId: UserDevicesRow["user_id"];
+  deviceId: UserDevicesRow["device_id"];
   platform: UserDevicesRow["platform"];
   deviceName: UserDevicesRow["device_name"];
   appVersion: UserDevicesRow["app_version"];
   expoPushToken: UserDevicesRow["expo_push_token"];
+  notificationsEnabled: UserDevicesRow["notifications_enabled"];
+  marketActivityEnabled: UserDevicesRow["market_activity_enabled"];
+  collectionUpdatesEnabled: UserDevicesRow["collection_updates_enabled"];
+  remindersEnabled: UserDevicesRow["reminders_enabled"];
+  permissionStatus: UserDevicesRow["permission_status"];
+  pushTokenStatus: UserDevicesRow["push_token_status"];
+  pushTokenRegisteredAt: UserDevicesRow["push_token_registered_at"];
+  lastErrorText: UserDevicesRow["last_error_text"];
   lastSeenAt: UserDevicesRow["last_seen_at"];
 }
 

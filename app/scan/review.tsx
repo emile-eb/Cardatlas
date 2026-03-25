@@ -10,6 +10,7 @@ import { immersiveTopChromeInset } from "@/theme/safeArea";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { pickImageFromDevice } from "@/utils/pickImage";
 import { FullScreenLoading } from "@/components/loading/FullScreenLoading";
+import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 
 type ScanSide = "front" | "back";
 
@@ -79,8 +80,10 @@ export default function ScanReviewScreen() {
   const [tipsOpen, setTipsOpen] = useState(false);
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
   const [activeSide, setActiveSide] = useState<ScanSide>("front");
+  const [hasAutoOpenedTips, setHasAutoOpenedTips] = useState(false);
 
   const { scanDraft, setScanDraftImage, clearScanDraft } = useAppState();
+  const { preferences, loaded: preferencesLoaded } = useAppPreferences();
 
   const frontDone = Boolean(scanDraft.frontUri);
   const backDone = Boolean(scanDraft.backUri);
@@ -114,6 +117,14 @@ export default function ScanReviewScreen() {
       setActiveSide("back");
     }
   }, [frontDone, backDone, legacyMode]);
+
+  useEffect(() => {
+    if (!legacyMode) return;
+    if (!preferencesLoaded || !preferences.scanTipsEnabled) return;
+    if (hasAutoOpenedTips) return;
+    setHasAutoOpenedTips(true);
+    setTipsOpen(true);
+  }, [hasAutoOpenedTips, legacyMode, preferences.scanTipsEnabled, preferencesLoaded]);
 
   if (!legacyMode) {
     return (

@@ -118,7 +118,7 @@ export default function EditResultScreen() {
     return (
       <FullScreenLoading
         title="Preparing correction tools"
-        message="Loading the current scan and likely card matches."
+        message="Loading the current scan and suggested card options."
         eyebrow="RESULT CORRECTION"
         icon="create-outline"
       />
@@ -150,8 +150,8 @@ export default function EditResultScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         {likelyMatches.length ? (
           <Panel>
-            <Text style={styles.panelTitle}>Likely Matches</Text>
-            <Text style={styles.helper}>Choose one if it looks right.</Text>
+            <Text style={styles.panelTitle}>Suggested Cards</Text>
+            <Text style={styles.helper}>Choose one if it matches this card.</Text>
             <View style={styles.chipsWrap}>
               {likelyMatches.slice(0, 5).map((match) => (
                 <Pressable
@@ -315,15 +315,15 @@ const styles = StyleSheet.create({
   },
   matchChip: {
     borderWidth: 1,
-    borderColor: "#E8BF86",
-    backgroundColor: "#FFFCF7",
+    borderColor: "#E7EBF1",
+    backgroundColor: "#FAFBFD",
     borderRadius: radius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm
   },
   matchText: {
     ...typography.bodySmall,
-    color: "#8A4B08"
+    color: "#243042"
   },
   fieldGroup: {
     gap: 6

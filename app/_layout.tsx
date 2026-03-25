@@ -3,6 +3,8 @@ import { StatusBar } from "expo-status-bar";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 import { AppStateProvider } from "@/state/AppState";
 import { AuthProvider, useAuth } from "@/features/auth";
+import { AppPreferencesProvider } from "@/features/settings/AppPreferencesProvider";
+import { NotificationsProvider } from "@/features/notifications/NotificationsProvider";
 import { colors } from "@/theme/tokens";
 import { standardTopInset } from "@/theme/safeArea";
 import { useEffect } from "react";
@@ -56,6 +58,9 @@ function AppRootNavigator() {
       <Stack.Screen name="collection/view/[id]" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
       <Stack.Screen name="collection/history" />
       <Stack.Screen name="collection/settings" />
+      <Stack.Screen name="help-center" />
+      <Stack.Screen name="legal/privacy" />
+      <Stack.Screen name="legal/terms" />
       <Stack.Screen name="scan/review" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
     </Stack>
   );
@@ -90,8 +95,12 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <AppStateProvider>
-          <StatusBar style="dark" />
-          <AppRootNavigator />
+          <AppPreferencesProvider>
+            <NotificationsProvider>
+              <StatusBar style="dark" />
+              <AppRootNavigator />
+            </NotificationsProvider>
+          </AppPreferencesProvider>
         </AppStateProvider>
       </AuthProvider>
     </SafeAreaProvider>

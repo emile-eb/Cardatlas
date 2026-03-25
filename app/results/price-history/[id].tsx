@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { ResultsDetailScaffold } from "@/components/results/ResultsDetailScaffold";
 import { ResultsDetailStatusState } from "@/components/results/ResultsDetailStatusState";
 import { useAppState } from "@/state/AppState";
@@ -25,12 +26,13 @@ import { priceHistoryService } from "@/services/priceHistory/PriceHistoryService
 
 export default function PriceHistoryDetailScreen() {
   const { id, from, collectionItemId, backTo } = useLocalSearchParams<{ id: string; from?: string; collectionItemId?: string; backTo?: string }>();
-  const { cards } = useAppState();
+  const { cards, premium, presentPaywall } = useAppState();
   const [result, setResult] = useState<ProcessedScanResult | null>(null);
   const [card, setCard] = useState<CardItem | null>(null);
   const [timeframe, setTimeframe] = useState<PriceHistoryTimeframe>("30D");
   const [chartWidth, setChartWidth] = useState(0);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyPoints, setHistoryPoints] = useState<PriceHistoryPoint[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
@@ -117,13 +119,14 @@ export default function PriceHistoryDetailScreen() {
 
       try {
         setHistoryLoading(true);
+        setHistoryError(null);
         const next = await priceHistoryService.getCardHistory(priceHistoryCardId);
         if (!active) return;
         setHistoryPoints(next.points);
       } catch (error) {
         if (!active) return;
         setHistoryPoints([]);
-        setErrorText("We couldn't load stored price history right now. Please try again.");
+        setHistoryError("We couldn't load stored price history right now. Please try again.");
         if (__DEV__) {
           console.log("[price_history] history_load_failed", error);
         }
@@ -150,6 +153,7 @@ export default function PriceHistoryDetailScreen() {
   const high = stats?.max ?? referenceValue;
   const low = stats?.min ?? referenceValue;
   const current = stats?.last ?? referenceValue;
+  const isLocked = !premium;
 
   if (!card && !errorText) {
     return (
@@ -162,7 +166,7 @@ export default function PriceHistoryDetailScreen() {
     );
   }
 
-  if (!card || errorText) {
+  if (!card || (errorText && premium)) {
     return <ResultsDetailStatusState title="Price History Unavailable" message={errorText ?? "We couldn't load this price history view."} backHref={backHref} />;
   }
 
@@ -184,29 +188,19 @@ export default function PriceHistoryDetailScreen() {
           <View style={styles.chartCopy}>
             <Text style={styles.chartKicker}>Historical market</Text>
             <Text style={styles.chartValue}>
-              {density === "empty" || density === "single" ? "Building" : `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}
+              {isLocked
+                ? "Track price movement"
+                : density === "empty" || density === "single"
+                  ? "Building"
+                  : `${deltaPct >= 0 ? "+" : ""}${deltaPct.toFixed(1)}%`}
             </Text>
             <Text style={styles.chartSupport}>
-              {density === "empty"
-                ? "CardAtlas will fill this view as tracked snapshots accumulate."
-                : "Period change leading into the current CardAtlas Reference Value"}
+              {isLocked
+                ? "See how this card's market value changes over time across different windows."
+                : density === "empty"
+                  ? "CardAtlas will fill this view as tracked snapshots accumulate."
+                  : "Period change leading into the current CardAtlas Reference Value"}
             </Text>
-          </View>
-
-          <View style={styles.timeframeWrap}>
-            {PRICE_HISTORY_TIMEFRAMES.map((item) => (
-              <Pressable
-                key={item}
-                onPress={() => setTimeframe(item)}
-                style={({ pressed }) => [
-                  styles.timeframePill,
-                  timeframe === item && styles.timeframePillActive,
-                  pressed && styles.timeframePillPressed
-                ]}
-              >
-                <Text style={[styles.timeframeText, timeframe === item && styles.timeframeTextActive]}>{item}</Text>
-              </Pressable>
-            ))}
           </View>
         </View>
 
@@ -222,6 +216,11 @@ export default function PriceHistoryDetailScreen() {
               <Text style={styles.stateTitle}>Preparing tracked history</Text>
               <Text style={styles.stateCopy}>Loading stored reference points for this card.</Text>
             </View>
+          ) : historyError && !isLocked ? (
+            <View style={styles.stateWrap}>
+              <Text style={styles.stateTitle}>History unavailable</Text>
+              <Text style={styles.stateCopy}>{historyError}</Text>
+            </View>
           ) : density === "empty" ? (
             <View style={styles.stateWrap}>
               <Text style={styles.stateTitle}>No tracked history yet</Text>
@@ -236,36 +235,94 @@ export default function PriceHistoryDetailScreen() {
                   {
                     left: point.x,
                     height: Math.max(28, 260 - point.y),
-                    opacity: index > points.length - 6 ? 0.96 : 0.62
+                    opacity: isLocked
+                      ? index > points.length - 6 ? 0.34 : 0.2
+                      : index > points.length - 6 ? 0.96 : 0.62
                   }
                 ]}
               />
             ))
           )}
+
+          {isLocked && !historyLoading ? (
+            <View style={styles.lockOverlay}>
+              <View style={styles.lockCard}>
+                <View style={styles.lockIconWrap}>
+                  <Ionicons name="trending-up-outline" size={18} color={colors.accentPrimary} />
+                </View>
+                <Text style={styles.lockTitle}>Unlock Price History</Text>
+                <Text style={styles.lockCopy}>
+                  Price History shows how this card's market value moves over time so you can spot trends, compare short-term swings, and make better buy, hold, or sell decisions. Upgrade to CardAtlas Pro to unlock it.
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    analyticsService.track(ANALYTICS_EVENTS.priceHistoryUpgradeTapped, {
+                      cardId: priceHistoryCardId ?? undefined,
+                      timeframe
+                    });
+                    presentPaywall("premium_feature_gate", priceHistoryCardId ? { cardId: priceHistoryCardId } : undefined);
+                  }}
+                  style={({ pressed }) => [styles.lockButton, pressed && styles.lockButtonPressed]}
+                >
+                  <Text style={styles.lockButtonText}>Upgrade to Pro</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.statsRow}>
           <View style={styles.stat}>
             <Text style={styles.statLabel}>High</Text>
-            <Text style={styles.statValue}>{density === "empty" ? "—" : formatMoney(high)}</Text>
+            <Text style={[styles.statValue, isLocked && styles.statValueLocked]}>
+              {density === "empty" ? "-" : isLocked ? "Locked" : formatMoney(high)}
+            </Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Low</Text>
-            <Text style={styles.statValue}>{density === "empty" ? "—" : formatMoney(low)}</Text>
+            <Text style={[styles.statValue, isLocked && styles.statValueLocked]}>
+              {density === "empty" ? "-" : isLocked ? "Locked" : formatMoney(low)}
+            </Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.stat}>
             <Text style={styles.statLabel}>Current</Text>
-            <Text style={styles.statValue}>{density === "empty" ? "—" : formatMoney(current)}</Text>
+            <Text style={[styles.statValue, isLocked && styles.statValueLocked]}>
+              {density === "empty" ? "-" : isLocked ? "Locked" : formatMoney(current)}
+            </Text>
           </View>
+        </View>
+
+        <View style={styles.timeframeWrap}>
+          {PRICE_HISTORY_TIMEFRAMES.map((item) => (
+            <Pressable
+              key={item}
+              onPress={() => setTimeframe(item)}
+              style={({ pressed }) => [
+                styles.timeframePill,
+                timeframe === item && styles.timeframePillActive,
+                pressed && styles.timeframePillPressed
+              ]}
+            >
+              <Text style={[styles.timeframeText, timeframe === item && styles.timeframeTextActive]}>{item}</Text>
+            </Pressable>
+          ))}
         </View>
       </View>
 
       <View style={styles.readBlock}>
-        <Text style={styles.readLabel}>CardAtlas read</Text>
-        <Text style={styles.readCopy}>{getTrendInsight(deltaPct, visibleHistory.length)}</Text>
-        <Text style={styles.readSupport}>{getHistorySupportCopy(visibleHistory.length)}</Text>
+        <Text style={styles.readLabel}>{isLocked ? "Why it matters" : "CardAtlas read"}</Text>
+        <Text style={styles.readCopy}>
+          {isLocked
+            ? "Price History helps collectors understand whether a card is strengthening, cooling off, or staying flat before making a move."
+            : getTrendInsight(deltaPct, visibleHistory.length)}
+        </Text>
+        <Text style={styles.readSupport}>
+          {isLocked
+            ? "Upgrade to Pro to unlock full historical trend visibility across every supported timeframe."
+            : getHistorySupportCopy(visibleHistory.length)}
+        </Text>
       </View>
     </ResultsDetailScaffold>
   );
@@ -316,7 +373,7 @@ const styles = StyleSheet.create({
     ...typography.BodyMedium,
     color: "#5B6575",
     lineHeight: 21,
-    maxWidth: 260
+    maxWidth: 280
   },
   timeframeWrap: {
     flexDirection: "row",
@@ -390,6 +447,68 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 5,
     backgroundColor: "#1A2230"
   },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18
+  },
+  lockCard: {
+    width: "100%",
+    maxWidth: 292,
+    borderWidth: 1,
+    borderColor: "#ECEFF4",
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    gap: 10,
+    shadowColor: "#000000",
+    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 2
+  },
+  lockIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "#F0D0CD",
+    backgroundColor: "#FFF7F6",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  lockTitle: {
+    ...typography.BodyLarge,
+    color: "#10161F",
+    fontFamily: "Inter-SemiBold",
+    textAlign: "center"
+  },
+  lockCopy: {
+    ...typography.BodyMedium,
+    color: "#5B6575",
+    textAlign: "center",
+    lineHeight: 20
+  },
+  lockButton: {
+    minWidth: 124,
+    borderRadius: 999,
+    backgroundColor: colors.accentPrimary,
+    paddingHorizontal: 16,
+    paddingVertical: 10
+  },
+  lockButtonPressed: {
+    opacity: 0.88
+  },
+  lockButtonText: {
+    ...typography.BodyMedium,
+    color: "#FFFFFF",
+    fontFamily: "Inter-SemiBold",
+    textAlign: "center"
+  },
   stateWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
@@ -434,6 +553,9 @@ const styles = StyleSheet.create({
     ...typography.BodyLarge,
     color: "#10161F",
     fontFamily: "Inter-SemiBold"
+  },
+  statValueLocked: {
+    color: "#8A93A1"
   },
   readBlock: {
     gap: 4,

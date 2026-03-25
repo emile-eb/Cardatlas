@@ -16,6 +16,7 @@ import { marketPulseService } from "@/services/marketPulse/MarketPulseService";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import type { MarketPulseItem } from "@/types";
+import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 
 const heroImage = require("../../assets/Best Hero Image.jpeg");
 const logoImage = require("../../assets/New Logo.png");
@@ -105,6 +106,7 @@ function rarityVisuals(label: string | null | undefined) {
 export default function HomeTab() {
   const scrollRef = useRef<ScrollView>(null);
   const { history, enterAiOrPaywall, consumeSessionPaywallTrigger, presentPaywall, startScanOrPaywall } = useAppState();
+  const { preferences } = useAppPreferences();
   const { session } = useAuth();
   const homeDashboard = useHomeDashboard();
   const totalValue = homeDashboard.portfolioValue;
@@ -272,21 +274,23 @@ export default function HomeTab() {
         style={styles.collectionCta}
       />
 
-      <View style={styles.aiCard}>
-        <Text style={styles.aiTitle}>Collector AI</Text>
-        <Text style={styles.aiDesc}>Ask what stands out, what may be worth grading, and where the strongest collector opportunities are.</Text>
-        <SecondaryButton
-          title="Ask Collector AI"
-          onPress={() => {
-            analyticsService.track(ANALYTICS_EVENTS.askAiFromHome, {
-              mode: "general"
-            });
-            if (!enterAiOrPaywall(undefined)) return;
-            router.push("/chat/general");
-          }}
-          style={styles.aiBtn}
-        />
-      </View>
+      {preferences.collectorAiEnabled ? (
+        <View style={styles.aiCard}>
+          <Text style={styles.aiTitle}>Collector AI</Text>
+          <Text style={styles.aiDesc}>Ask what stands out, what may be worth grading, and where the strongest collector opportunities are.</Text>
+          <SecondaryButton
+            title="Ask Collector AI"
+            onPress={() => {
+              analyticsService.track(ANALYTICS_EVENTS.askAiFromHome, {
+                mode: "general"
+              });
+              if (!enterAiOrPaywall(undefined)) return;
+              router.push("/chat/general");
+            }}
+            style={styles.aiBtn}
+          />
+        </View>
+      ) : null}
 
       <View style={styles.marketPulseSection}>
         <View style={styles.marketPulseHeader}>

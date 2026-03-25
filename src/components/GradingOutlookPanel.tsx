@@ -91,7 +91,6 @@ export function GradingOutlookPanel({ cardId, rawValue, sourceScanId, compact = 
         <View style={styles.recommendationDot} />
         <View style={styles.recommendationCopy}>
           <Text style={styles.recommendationTitle}>{recommendationText(outlook)}</Text>
-          <Text style={styles.recommendationBody}>PSA outcomes blend CardAtlas value, GPT grading multipliers, and live PSA asks.</Text>
         </View>
         <Text style={styles.recommendationValue}>+{money(outlook.potentialUpside)}</Text>
       </View>
@@ -104,18 +103,12 @@ export function GradingOutlookPanel({ cardId, rawValue, sourceScanId, compact = 
         <View style={styles.scenarioRow}>
           <View style={styles.scenarioCopy}>
             <Text style={styles.scenarioLabel}>PSA 9 outcome</Text>
-            <Text style={styles.scenarioMeta}>
-              {outlook.psa9AverageAsk ? `Live PSA 9 ask ${money(outlook.psa9AverageAsk)}` : "Multiplier-led outlook"}
-            </Text>
           </View>
           <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa9)}</Text>
         </View>
         <View style={[styles.scenarioRow, styles.scenarioRowLast]}>
           <View style={styles.scenarioCopy}>
             <Text style={styles.scenarioLabel}>PSA 10 outcome</Text>
-            <Text style={styles.scenarioMeta}>
-              {outlook.psa10AverageAsk ? `Live PSA 10 ask ${money(outlook.psa10AverageAsk)}` : "Multiplier-led outlook"}
-            </Text>
           </View>
           <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa10)}</Text>
         </View>
@@ -156,17 +149,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentPrimary
   },
   recommendationCopy: {
-    flex: 1,
-    gap: 2
+    flex: 1
   },
   recommendationTitle: {
     ...typography.BodyMedium,
     color: "#121821",
     fontFamily: "Inter-SemiBold"
-  },
-  recommendationBody: {
-    ...typography.Caption,
-    color: "#6B7483"
   },
   recommendationValue: {
     ...typography.BodyMedium,
@@ -190,8 +178,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   scenarioCopy: {
-    flex: 1,
-    gap: 2
+    flex: 1
   },
   scenarioRowLast: {
     borderBottomWidth: 0
@@ -204,10 +191,6 @@ const styles = StyleSheet.create({
     ...typography.BodyMedium,
     color: colors.textPrimary,
     fontFamily: "Inter-SemiBold"
-  },
-  scenarioMeta: {
-    ...typography.Caption,
-    color: "#768093"
   },
   rationale: {
     marginTop: 10,

@@ -172,7 +172,7 @@ export default function CollectionTab() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+      <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.headerTitleBlock}>
             <Text style={styles.title}>Collection</Text>
@@ -272,7 +272,9 @@ export default function CollectionTab() {
             </Pressable>
           </View>
         ) : null}
+      </View>
 
+      <ScrollView style={styles.inventoryScroll} contentContainerStyle={styles.inventoryContent} showsVerticalScrollIndicator={false}>
         <View style={styles.inventoryList}>
           {cards.length === 0 ? (
             <View style={styles.firstScanEmptyCard}>
@@ -395,7 +397,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundPrimary
   },
   content: {
-    padding: layout.pagePadding,
+    paddingHorizontal: layout.pagePadding,
+    paddingTop: layout.pagePadding
+  },
+  inventoryScroll: {
+    flex: 1
+  },
+  inventoryContent: {
+    paddingHorizontal: layout.pagePadding,
+    paddingTop: 18,
     paddingBottom: 140
   },
   header: {
@@ -582,7 +592,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary
   },
   inventoryList: {
-    marginTop: 18,
     gap: 9
   },
   firstScanEmptyCard: {

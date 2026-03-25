@@ -18,6 +18,7 @@ import { useAppState } from "@/state/AppState";
 import { useRarityVisuals } from "@/hooks/useRarityVisuals";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 
 type Props = {
   card: CardItem;
@@ -43,6 +44,7 @@ export function ResultDetails({
   contentContainerStyle
 }: Props) {
   const { cards, addCardToCollection, addProcessedScanToCollection, enterAiOrPaywall } = useAppState();
+  const { preferences } = useAppPreferences();
   const insets = useSafeAreaInsets();
   const [heroRevealPulseToken, setHeroRevealPulseToken] = useState(0);
   const rarityVisuals = useRarityVisuals(card.rarityLabel);
@@ -256,22 +258,24 @@ export function ResultDetails({
           </Panel>
         ) : null}
 
-        <Panel style={styles.aiPanel}>
-          <ResultsModuleHeader title="Next Step" eyebrow="Decision support" />
-          <Text style={styles.aiLead}>Ask Collector AI what stands out, whether grading is worth it, or what to do next with this card.</Text>
-          <Text style={styles.aiSupportCopy}>Get a grounded collector take built from this card's value, rarity, market context, and grading outlook.</Text>
-          <SecondaryButton
-            title="Ask Collector AI"
-            onPress={() => {
-              analyticsService.track(ANALYTICS_EVENTS.askAiFromResults, {
-                cardId: card.id,
-                sourceScanId: sourceScanId ?? undefined
-              });
-              if (enterAiOrPaywall(card.id)) router.push(`/chat/${card.id}`);
-            }}
-            style={styles.askAiButton}
-          />
-        </Panel>
+        {preferences.collectorAiEnabled ? (
+          <Panel style={styles.aiPanel}>
+            <ResultsModuleHeader title="Next Step" eyebrow="Decision support" />
+            <Text style={styles.aiLead}>Ask Collector AI what stands out, whether grading is worth it, or what to do next with this card.</Text>
+            <Text style={styles.aiSupportCopy}>Get a grounded collector take built from this card's value, rarity, market context, and grading outlook.</Text>
+            <SecondaryButton
+              title="Ask Collector AI"
+              onPress={() => {
+                analyticsService.track(ANALYTICS_EVENTS.askAiFromResults, {
+                  cardId: card.id,
+                  sourceScanId: sourceScanId ?? undefined
+                });
+                if (enterAiOrPaywall(card.id)) router.push(`/chat/${card.id}`);
+              }}
+              style={styles.askAiButton}
+            />
+          </Panel>
+        ) : null}
         </View>
         <Pressable onPress={onReportIncorrect} style={styles.reportWrap}>
           <Text style={styles.report}>{isReporting ? "Reporting..." : "Report Incorrect Result"}</Text>

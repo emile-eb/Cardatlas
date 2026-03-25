@@ -1,6 +1,7 @@
 export const ENV_KEYS = {
   supabaseUrl: "EXPO_PUBLIC_SUPABASE_URL",
   supabaseAnonKey: "EXPO_PUBLIC_SUPABASE_ANON_KEY",
+  expoProjectId: "EXPO_PUBLIC_EXPO_PROJECT_ID",
   revenueCatIosKey: "EXPO_PUBLIC_REVENUECAT_IOS_KEY",
   metaAppId: "EXPO_PUBLIC_META_APP_ID",
   bundleIdentifier: "EXPO_PUBLIC_BUNDLE_IDENTIFIER",

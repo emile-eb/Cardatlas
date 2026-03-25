@@ -8,12 +8,19 @@ import type {
   StructuredCardIdentification,
   UUID
 } from "@/types";
+import type { ActiveMarketDebugTrace } from "@/services/activeListings/types";
 
 const PSA9_HEURISTIC_MULTIPLIER = 2.0;
 const PSA10_HEURISTIC_MULTIPLIER = 4.5;
 const MIN_GRADING_MULTIPLIER = 0.75;
 const MAX_GRADING_MULTIPLIER = 12;
 const ACTIVE_MARKET_WINDOW = 24;
+const DEBUG_CARD_ID = "3d41362f-4033-4cc7-9077-5ef9a7cec50e";
+
+function debugLog(label: string, payload: Record<string, unknown>) {
+  if (!__DEV__) return;
+  console.log(`[grading_outlook] ${label}`, payload);
+}
 
 type GradingPayload = Pick<
   StructuredCardIdentification,
@@ -191,7 +198,8 @@ async function tryPersistScenarios(cardId: UUID, scenarios: CardGradingScenario[
     .in("assumed_grade", ["Raw", "9", "10"]);
 
   if (deleteError) return;
-  await supabase.from("card_grading_scenarios").insert(payload);
+  const { error: insertError } = await supabase.from("card_grading_scenarios").insert(payload);
+  if (insertError) return;
 }
 
 async function readGradingPayload(cardId: UUID, sourceScanId?: UUID | null): Promise<GradingPayload | null> {
@@ -329,16 +337,36 @@ class GradingOutlookServiceImpl implements GradingOutlookService {
     const baseRaw = Number(options?.rawValue ?? valuationRes.data?.reference_value ?? 0);
     const rawReferenceValue = Number.isFinite(baseRaw) && baseRaw > 0 ? baseRaw : 0;
 
-    const [gradingPayload, activeMarket] = await Promise.all([
-      readGradingPayload(cardId, options?.sourceScanId),
-      activeListingsService.getDisplayActiveListings(cardId, {
-        referenceValue: rawReferenceValue,
-        maxItems: ACTIVE_MARKET_WINDOW
-      })
-    ]);
+    const debugTrace: ActiveMarketDebugTrace | undefined =
+      cardId === DEBUG_CARD_ID
+        ? {
+            requestId: `amg-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+            enabled: true,
+            inspectRejected: true,
+            requestOrigin: "grading"
+          }
+        : undefined;
 
-    const psa9AverageAsk = summarizeSegmentAverage(activeMarket.filteredSegments.psa9.map((listing) => listing.price));
-    const psa10AverageAsk = summarizeSegmentAverage(activeMarket.filteredSegments.psa10.map((listing) => listing.price));
+    const gradingPayloadPromise = readGradingPayload(cardId, options?.sourceScanId);
+    const activeMarketPromise = activeListingsService
+      .getDisplayActiveListings(cardId, {
+        referenceValue: rawReferenceValue,
+        maxItems: ACTIVE_MARKET_WINDOW,
+        debugTrace
+      })
+      .catch((error) => {
+        debugLog("active_market_unavailable", {
+          requestId: debugTrace?.requestId,
+          cardId,
+          reason: error instanceof Error ? error.message : "active_market_unavailable"
+        });
+        return null;
+      });
+
+    const [gradingPayload, activeMarket] = await Promise.all([gradingPayloadPromise, activeMarketPromise]);
+
+    const psa9AverageAsk = summarizeSegmentAverage((activeMarket?.filteredSegments.psa9 ?? []).map((listing) => listing.price));
+    const psa10AverageAsk = summarizeSegmentAverage((activeMarket?.filteredSegments.psa10 ?? []).map((listing) => listing.price));
 
     const psa9Multiplier = resolveMultiplier(gradingPayload?.psa9Multiplier, PSA9_HEURISTIC_MULTIPLIER);
     const psa10Multiplier = resolveMultiplier(gradingPayload?.psa10Multiplier, PSA10_HEURISTIC_MULTIPLIER);

@@ -15,6 +15,8 @@ export function ResultsDetailScaffold({
   resultId,
   backHref,
   referenceVariant = "default",
+  showIdentity = true,
+  showReferenceStrip = true,
   children
 }: PropsWithChildren<{
   card: CardItem;
@@ -24,6 +26,8 @@ export function ResultsDetailScaffold({
   resultId: string;
   backHref?: string;
   referenceVariant?: "default" | "integrated";
+  showIdentity?: boolean;
+  showReferenceStrip?: boolean;
 }>) {
   const insets = useSafeAreaInsets();
 
@@ -41,25 +45,29 @@ export function ResultsDetailScaffold({
           <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
 
-        <View style={[styles.referenceStrip, referenceVariant === "integrated" && styles.referenceStripIntegrated]}>
-          {referenceVariant === "default" ? <View style={styles.referenceAccent} /> : null}
-          <View style={[styles.referenceMainRow, referenceVariant === "integrated" && styles.referenceMainRowIntegrated]}>
-            <View style={styles.referenceCopy}>
-              <Text style={styles.referenceLabel}>CardAtlas Reference Value</Text>
-              <Text style={styles.referenceValue}>
-                ${referenceValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Text>
-            </View>
-            <View style={styles.identityCopy}>
-              <Text style={styles.identityTitle} numberOfLines={2}>
-                {card.cardTitle}
-              </Text>
-              <Text style={styles.identityMeta} numberOfLines={2}>
-                {card.playerName} | {card.year} {card.brand}
-              </Text>
+        {showReferenceStrip ? (
+          <View style={[styles.referenceStrip, referenceVariant === "integrated" && styles.referenceStripIntegrated]}>
+            {referenceVariant === "default" ? <View style={styles.referenceAccent} /> : null}
+            <View style={[styles.referenceMainRow, referenceVariant === "integrated" && styles.referenceMainRowIntegrated]}>
+              <View style={styles.referenceCopy}>
+                <Text style={styles.referenceLabel}>CardAtlas Reference Value</Text>
+                <Text style={styles.referenceValue}>
+                  ${referenceValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </Text>
+              </View>
+              {showIdentity ? (
+                <View style={styles.identityCopy}>
+                  <Text style={styles.identityTitle} numberOfLines={2}>
+                    {card.cardTitle}
+                  </Text>
+                  <Text style={styles.identityMeta} numberOfLines={2}>
+                    {card.playerName} | {card.year} {card.brand}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
-        </View>
+        ) : null}
 
         {children}
       </ScrollView>

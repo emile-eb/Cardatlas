@@ -3,6 +3,7 @@ import { ENV_KEYS } from "@/constants/env";
 type AppConfig = {
   supabaseUrl?: string;
   supabaseAnonKey?: string;
+  expoProjectId?: string;
   revenueCatIosKey?: string;
   metaAppId?: string;
   bundleIdentifier: string;
@@ -18,6 +19,7 @@ export function getAppConfig(): AppConfig {
     // Supabase runtime endpoints for auth/data/storage.
     supabaseUrl: readEnv(ENV_KEYS.supabaseUrl),
     supabaseAnonKey: readEnv(ENV_KEYS.supabaseAnonKey),
+    expoProjectId: readEnv(ENV_KEYS.expoProjectId),
     // RevenueCat iOS public SDK key (future subscription integration).
     revenueCatIosKey: readEnv(ENV_KEYS.revenueCatIosKey),
     // Meta app id for event attribution (future integration).

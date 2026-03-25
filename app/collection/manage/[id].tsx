@@ -8,10 +8,12 @@ import { useAppState } from "@/state/AppState";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 
 export default function ManageCollectionItemScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { cards, updateCollectionItem, removeCollectionItem, enterAiOrPaywall } = useAppState();
+  const { preferences } = useAppPreferences();
   const item = useMemo(() => cards.find((card) => card.collectionItemId === id), [cards, id]);
 
   const [notes, setNotes] = useState(item?.notes ?? "");
@@ -166,26 +168,28 @@ export default function ManageCollectionItemScreen() {
           </View>
         </View>
 
-        <View style={styles.aiEntrySection}>
-          <Text style={styles.aiEntryKicker}>Collector Utility</Text>
-          <Text style={styles.aiEntryTitle}>Ask Collector AI what to do with this card</Text>
-          <Text style={styles.aiEntryCopy}>
-            Get a card-aware take on grading, pricing, and whether this card deserves closer attention.
-          </Text>
-          <SecondaryButton
-            title="Ask Collector AI"
-            onPress={() => {
-              const cardContextId = item.sourceCardId ?? item.id;
-              analyticsService.track(ANALYTICS_EVENTS.askAiFromManageCard, {
-                cardId: cardContextId,
-                collectionItemId: item.collectionItemId ?? id
-              });
-              if (!enterAiOrPaywall(cardContextId)) return;
-              router.push(`/chat/${cardContextId}`);
-            }}
-            style={styles.aiEntryButton}
-          />
-        </View>
+        {preferences.collectorAiEnabled ? (
+          <View style={styles.aiEntrySection}>
+            <Text style={styles.aiEntryKicker}>Collector Utility</Text>
+            <Text style={styles.aiEntryTitle}>Ask Collector AI what to do with this card</Text>
+            <Text style={styles.aiEntryCopy}>
+              Get a card-aware take on grading, pricing, and whether this card deserves closer attention.
+            </Text>
+            <SecondaryButton
+              title="Ask Collector AI"
+              onPress={() => {
+                const cardContextId = item.sourceCardId ?? item.id;
+                analyticsService.track(ANALYTICS_EVENTS.askAiFromManageCard, {
+                  cardId: cardContextId,
+                  collectionItemId: item.collectionItemId ?? id
+                });
+                if (!enterAiOrPaywall(cardContextId)) return;
+                router.push(`/chat/${cardContextId}`);
+              }}
+              style={styles.aiEntryButton}
+            />
+          </View>
+        ) : null}
 
         <View style={styles.controlsSection}>
           <View style={styles.sectionHeaderRow}>

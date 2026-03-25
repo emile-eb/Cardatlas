@@ -46,7 +46,10 @@ function imageAt(index: number): string {
 class MockActiveListingsProviderImpl implements ActiveListingsProvider {
   readonly providerId = "mock" as const;
 
-  async getActiveListings(cardId: UUID, options?: { referenceValue?: number; maxItems?: number }): Promise<ActiveListingsProviderResult> {
+  async getActiveListings(
+    cardId: UUID,
+    options?: { referenceValue?: number; maxItems?: number; debugTrace?: import("@/services/activeListings/types").ActiveMarketDebugTrace }
+  ): Promise<ActiveListingsProviderResult> {
     const maxItems = Math.max(4, Math.min(options?.maxItems ?? 5, 6));
     const base = Number(options?.referenceValue ?? 0);
     const safeBase = Number.isFinite(base) && base > 0 ? base : 100;
@@ -79,4 +82,3 @@ class MockActiveListingsProviderImpl implements ActiveListingsProvider {
 }
 
 export const mockActiveListingsProvider: ActiveListingsProvider = new MockActiveListingsProviderImpl();
-

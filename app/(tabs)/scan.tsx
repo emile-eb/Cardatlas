@@ -9,6 +9,7 @@ import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { pickImageFromDevice } from "@/utils/pickImage";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
+import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 
 type ScanSide = "front" | "back";
 
@@ -161,8 +162,10 @@ export default function ScanCameraTab() {
   const hasHandedOffRef = useRef(false);
   const hasTrackedOpenRef = useRef(false);
   const hasRequestedPermissionRef = useRef(false);
+  const hasShownTipsOnOpenRef = useRef(false);
 
   const { scanDraft, setScanDraftImage, clearScanDraft } = useAppState();
+  const { preferences, loaded: preferencesLoaded } = useAppPreferences();
   const frontDone = Boolean(scanDraft.frontUri);
   const backDone = Boolean(scanDraft.backUri);
   const ready = frontDone && backDone;
@@ -224,6 +227,14 @@ export default function ScanCameraTab() {
       console.log("[scan_camera] opened", { platform: Platform.OS, path: isNativeCamera ? "native" : "fallback" });
     }
   }, [isNativeCamera]);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    if (!preferences.scanTipsEnabled) return;
+    if (hasShownTipsOnOpenRef.current) return;
+    hasShownTipsOnOpenRef.current = true;
+    setTipsOpen(true);
+  }, [preferences.scanTipsEnabled, preferencesLoaded]);
 
   useEffect(() => {
     if (!isNativeCamera || !permissionDenied) return;

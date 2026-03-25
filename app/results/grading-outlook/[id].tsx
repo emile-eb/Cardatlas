@@ -34,7 +34,9 @@ function getRecommendationTone(recommendation: string) {
     return {
       label: "Grade signal",
       icon: "arrow-up-circle" as const,
-      value: "Strong grading case"
+      value: "Strong grading case",
+      color: colors.success,
+      backgroundColor: "#EFFAF3"
     };
   }
 
@@ -42,14 +44,18 @@ function getRecommendationTone(recommendation: string) {
     return {
       label: "Grade signal",
       icon: "scan-circle" as const,
-      value: "Condition-sensitive upside"
+      value: "Condition-sensitive upside",
+      color: colors.accentPrimary,
+      backgroundColor: "#FFF4F2"
     };
   }
 
   return {
     label: "Grade signal",
     icon: "remove-circle" as const,
-    value: "Thin grading edge"
+    value: "Thin grading edge",
+    color: colors.accentPrimary,
+    backgroundColor: "#FFF4F2"
   };
 }
 
@@ -174,12 +180,14 @@ export default function GradingOutlookDetailScreen() {
       resultId={id}
       backHref={backHref}
       referenceVariant="integrated"
+      showIdentity={false}
+      showReferenceStrip={false}
     >
       <View style={styles.recommendationHero}>
         <View style={styles.signalRow}>
-          <View style={styles.signalChip}>
-            <Ionicons name={tone.icon} size={14} color={colors.accentPrimary} />
-            <Text style={styles.signalLabel}>{tone.value}</Text>
+          <View style={[styles.signalChip, { backgroundColor: tone.backgroundColor }]}>
+            <Ionicons name={tone.icon} size={14} color={tone.color} />
+            <Text style={[styles.signalLabel, { color: tone.color }]}>{tone.value}</Text>
           </View>
         </View>
 
@@ -206,18 +214,12 @@ export default function GradingOutlookDetailScreen() {
           <View style={styles.scenarioRow}>
             <View style={styles.scenarioCopy}>
               <Text style={styles.scenarioLabel}>PSA 9 outcome</Text>
-              <Text style={styles.scenarioMeta}>
-                {outlook.psa9AverageAsk ? `Live PSA 9 ask ${money(outlook.psa9AverageAsk)}` : `Multiplier ${outlook.psa9Multiplier.toFixed(2)}x`}
-              </Text>
             </View>
             <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa9)}</Text>
           </View>
           <View style={styles.scenarioRow}>
             <View style={styles.scenarioCopy}>
               <Text style={styles.scenarioLabel}>PSA 10 outcome</Text>
-              <Text style={styles.scenarioMeta}>
-                {outlook.psa10AverageAsk ? `Live PSA 10 ask ${money(outlook.psa10AverageAsk)}` : `Multiplier ${outlook.psa10Multiplier.toFixed(2)}x`}
-              </Text>
             </View>
             <Text style={styles.scenarioValue}>{money(outlook.gradingOutcomePsa10)}</Text>
           </View>
@@ -297,12 +299,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: "#FFF4F2",
     alignSelf: "flex-start"
   },
   signalLabel: {
     ...typography.Caption,
-    color: colors.accentPrimary,
     fontFamily: "Inter-SemiBold",
     letterSpacing: 0.2
   },
@@ -315,9 +315,9 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   recommendationBody: {
-    ...typography.BodyMedium,
+    ...typography.bodySmall,
     color: "#556173",
-    lineHeight: 20,
+    lineHeight: 18,
     maxWidth: 292
   },
   upsideRow: {
@@ -379,12 +379,11 @@ const styles = StyleSheet.create({
     gap: 12
   },
   scenarioCopy: {
-    flex: 1,
-    gap: 2
+    flex: 1
   },
   scenarioRowAccent: {
     borderBottomWidth: 0,
-    backgroundColor: "#FFF9F8"
+    backgroundColor: "#F5F7FA"
   },
   scenarioLabel: {
     ...typography.BodyMedium,
@@ -400,10 +399,6 @@ const styles = StyleSheet.create({
     ...typography.BodyLarge,
     color: "#10161F",
     fontFamily: "Inter-SemiBold"
-  },
-  scenarioMeta: {
-    ...typography.Caption,
-    color: "#788295"
   },
   scenarioValueAccent: {
     ...typography.H3,

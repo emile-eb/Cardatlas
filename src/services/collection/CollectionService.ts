@@ -154,7 +154,7 @@ class CollectionServiceImpl implements CollectionService {
     if (scanError) throw scanError;
     if (!scan) throw new Error("Scan not found.");
     if (scan.status !== "completed" && scan.status !== "needs_review") {
-      throw new Error("Scan must be completed or needs review before adding to collection.");
+      throw new Error("Scan must finish processing before adding to collection.");
     }
     if (!scan.card_id) throw new Error("Scan does not have a processed card id.");
 
