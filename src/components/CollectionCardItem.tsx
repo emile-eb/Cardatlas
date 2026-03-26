@@ -3,6 +3,7 @@ import { CardItem } from "@/types/models";
 import { colors, spacing, typography } from "@/theme/tokens";
 import { PriceText } from "./PriceText";
 import { Ionicons } from "@expo/vector-icons";
+import { formatGradeScore, normalizeGradeScore } from "@/utils/gradeScore";
 
 type Props = {
   item: CardItem;
@@ -59,6 +60,7 @@ function rarityVisuals(rarityLabel?: CardItem["rarityLabel"] | null) {
 
 export function CollectionCardItem({ item, onPress, onManage }: Props) {
   const visuals = rarityVisuals(item.rarityLabel);
+  const gradeScore = normalizeGradeScore(item.gradeScore);
 
   return (
     <Pressable
@@ -92,6 +94,7 @@ export function CollectionCardItem({ item, onPress, onManage }: Props) {
       </View>
       <View style={styles.right}>
         <PriceText value={item.referenceValue} style={styles.value} />
+        {gradeScore != null ? <Text style={styles.gradeScore}>GS {formatGradeScore(gradeScore)}</Text> : null}
         {onManage ? (
           <Pressable
             hitSlop={8}
@@ -228,6 +231,12 @@ const styles = StyleSheet.create({
     color: colors.accentPrimary,
     fontVariant: ["tabular-nums"],
     lineHeight: 19
+  },
+  gradeScore: {
+    ...typography.Caption,
+    marginTop: 4,
+    color: "#6B7280",
+    fontFamily: "Inter-SemiBold"
   }
 });
 

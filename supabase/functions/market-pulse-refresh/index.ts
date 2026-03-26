@@ -11,6 +11,7 @@ const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 20;
 const SOURCE_ID = "cardatlas_pulse";
 const DEFAULT_EXCLUDED_KEYWORDS = ["lot", "reprint", "custom", "digital", "proxy"];
+const FORCED_DEBUG_PLAYER_NAME = "alex rodriguez";
 const RAW_MIN_SCORE = 7;
 const GRADED_STRONG_SCORE = 14;
 const GRADED_MEDIUM_SCORE = 11;
@@ -28,6 +29,10 @@ function json(data: unknown, init?: ResponseInit) {
 
 function clean(value: string | null | undefined): string {
   return (value ?? "").trim();
+}
+
+function normalizePersonName(value: string | null | undefined): string {
+  return clean(value).toLowerCase().replace(/\s+/g, " ");
 }
 
 function nowIso() {
@@ -452,6 +457,7 @@ async function loadPulseCandidates(service: any, limit: number) {
       };
     })
     .filter((candidate) => candidate.playerName && candidate.cardNumber)
+    .filter((candidate) => normalizePersonName(candidate.playerName) === FORCED_DEBUG_PLAYER_NAME)
     .slice(0, candidatePoolSize);
 }
 

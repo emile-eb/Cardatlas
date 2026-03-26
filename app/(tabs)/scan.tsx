@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraCapturedPicture, FlashMode } from "expo-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -147,6 +148,7 @@ function CameraFailureState({
 export default function ScanCameraTab() {
   const params = useLocalSearchParams<{ origin?: string; side?: string }>();
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const origin = typeof params.origin === "string" ? params.origin : null;
   const preferredSideParam: ScanSide = params.side === "back" ? "back" : "front";
   const isNativeCamera = Platform.OS !== "web";
@@ -177,6 +179,12 @@ export default function ScanCameraTab() {
   const guidanceTitle = `${sideLabel(activeSide)} of Card`;
   const permissionDenied = isNativeCamera && permission != null && !permission.granted;
   const deniedPermanently = Boolean(permissionDenied && !permission?.canAskAgain);
+  const shouldMountCameraView =
+    isNativeCamera &&
+    isFocused &&
+    Boolean(permission?.granted) &&
+    !currentSideCaptured &&
+    !cameraError;
 
   const helperText = useMemo(() => {
     if (pickerMessage) return pickerMessage;
@@ -252,6 +260,27 @@ export default function ScanCameraTab() {
       });
     }
   }, [isNativeCamera, permissionDenied, permission?.canAskAgain, permission?.status]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[scan_camera] focus_change", {
+      isFocused,
+      currentSideCaptured,
+      cameraReady,
+      hasPermission: permission?.granted ?? null,
+      cameraError: cameraError ?? null
+    });
+  }, [cameraError, cameraReady, currentSideCaptured, isFocused, permission?.granted]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    if (!shouldMountCameraView) return;
+    console.log("[scan_camera] mounted_camera_view", {
+      isFocused,
+      side: activeSide,
+      hasPermission: permission?.granted ?? null
+    });
+  }, [activeSide, isFocused, permission?.granted, shouldMountCameraView]);
 
   useEffect(() => {
     if (!ready) {
@@ -440,22 +469,24 @@ export default function ScanCameraTab() {
       <View style={styles.liveCenterArea}>
         <View style={styles.previewFrameShell}>
           <View style={styles.previewFrame}>
-            {isNativeCamera && !currentSideCaptured ? (
+            {shouldMountCameraView ? (
               <CameraView
                 key={cameraInstanceKey}
                 ref={cameraRef}
                 style={styles.cameraView}
                 mode="picture"
                 facing="back"
+                active={isFocused}
                 flash={flashMode}
                 enableTorch={flashMode === "on"}
                 animateShutter={false}
                 onCameraReady={() => {
                   setCameraReady(true);
                   if (__DEV__) {
-                    console.log("[scan_camera] ready", {
+                    console.log("[scan_camera] on_camera_ready", {
                       side: activeSide,
-                      flashMode
+                      flashMode,
+                      isFocused
                     });
                   }
                 }}
@@ -468,7 +499,12 @@ export default function ScanCameraTab() {
                     reason: message
                   });
                   if (__DEV__) {
-                    console.log("[scan_camera] mount_error", { message });
+                    console.log("[scan_camera] on_mount_error", {
+                      error: message,
+                      isFocused,
+                      side: activeSide,
+                      hasPermission: permission?.granted ?? null
+                    });
                   }
                 }}
               />

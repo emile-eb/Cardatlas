@@ -25,6 +25,7 @@ import { dashboardService } from "@/services/dashboard/DashboardService";
 import { collectionService } from "@/services/collection/CollectionService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
+import { normalizeGradeScore } from "@/utils/gradeScore";
 import { rarityFromPrice } from "@/utils/rarity";
 import type { PaywallEntryPoint } from "@/features/paywall/paywallVariants";
 import { analyticsLabelForPaywallEntryPoint } from "@/features/paywall/paywallVariants";
@@ -115,7 +116,10 @@ const AppStateContext = createContext<AppStateValue | null>(null);
 function toCardItemFromHighlight(highlight: HomeDashboardResponse["collectionHighlights"][number]): CardItem {
   const playerInfo = (highlight.card.playerInfo ?? {}) as Record<string, string>;
   const { rarityLabel, rarityLevel } = rarityFromPrice(highlight.latestValue);
-  return {
+  const resolvedGradeScore = normalizeGradeScore(
+    (highlight.card.metadata as Record<string, unknown> | null | undefined)?.gradeScore
+  );
+  const item = {
     id: highlight.card.id,
     collectionItemId: highlight.collectionItemId,
     sourceCardId: highlight.card.id,
@@ -144,6 +148,7 @@ function toCardItemFromHighlight(highlight: HomeDashboardResponse["collectionHig
     team: highlight.card.team ?? "Unknown",
     position: highlight.card.position ?? "",
     referenceValue: highlight.latestValue,
+    gradeScore: resolvedGradeScore,
     gradedUpside: undefined,
     rarityLevel: highlight.card.rarityLevel ?? rarityLevel,
     rarityLabel,
@@ -157,6 +162,17 @@ function toCardItemFromHighlight(highlight: HomeDashboardResponse["collectionHig
     imageBack: highlight.card.imageBack ?? "",
     dateScanned: highlight.addedAt ?? new Date().toISOString()
   };
+
+  if (__DEV__) {
+    console.log("[grade_score][app_state_highlight]", {
+      cardId: highlight.card.id,
+      playerName: item.playerName,
+      metadataGradeScore: (highlight.card.metadata as Record<string, unknown> | null | undefined)?.gradeScore ?? null,
+      resolvedGradeScore
+    });
+  }
+
+  return item;
 }
 
 function toCardItemFromRecentScan(scan: HomeDashboardResponse["recentScans"][number]): CardItem | null {
@@ -167,7 +183,8 @@ function toCardItemFromRecentScan(scan: HomeDashboardResponse["recentScans"][num
 
   const referenceValue = Number(payload.referenceValue ?? 0);
   const { rarityLabel, rarityLevel } = rarityFromPrice(referenceValue);
-  return {
+  const resolvedGradeScore = normalizeGradeScore(payload.gradeScore);
+  const item = {
     id: scan.id,
     sourceScanId: scan.id,
     sourceCardId: (scan.correctedCardId ?? scan.cardId) ?? undefined,
@@ -189,6 +206,7 @@ function toCardItemFromRecentScan(scan: HomeDashboardResponse["recentScans"][num
     team: payload.team ?? "Unknown",
     position: payload.position ?? "",
     referenceValue,
+    gradeScore: resolvedGradeScore,
     gradedUpside: Number(payload.gradedUpside ?? (payload.referenceValue ? Number(payload.referenceValue) * 1.35 : 0)),
     rarityLevel,
     rarityLabel,
@@ -202,6 +220,17 @@ function toCardItemFromRecentScan(scan: HomeDashboardResponse["recentScans"][num
     imageBack: scan.backImagePath?.trim() || frontImagePath,
     dateScanned: scan.scannedAt
   };
+
+  if (__DEV__) {
+    console.log("[grade_score][app_state_recent_scan]", {
+      scanId: scan.id,
+      playerName: item.playerName,
+      payloadGradeScore: payload.gradeScore ?? null,
+      resolvedGradeScore
+    });
+  }
+
+  return item;
 }
 
 export function AppStateProvider({ children }: PropsWithChildren) {

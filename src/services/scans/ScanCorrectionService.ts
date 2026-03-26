@@ -1,5 +1,6 @@
 import { getRequiredSupabaseClient } from "@/lib/supabase/client";
 import type { UUID } from "@/types";
+import { normalizeGradeScore } from "@/utils/gradeScore";
 
 export interface CardCorrectionFields {
   sport?: string | null;
@@ -381,6 +382,14 @@ class ScanCorrectionServiceImpl implements ScanCorrectionService {
 
   async applyManualEdits(scanId: UUID, fields: CardCorrectionFields, reason?: string | null): Promise<UUID> {
     const supabase = await getRequiredSupabaseClient();
+    const { data: scanRow, error: scanError } = await supabase
+      .from("scans")
+      .select("identified_payload")
+      .eq("id", scanId)
+      .maybeSingle();
+    if (scanError) throw scanError;
+    const identifiedPayload = (scanRow?.identified_payload ?? {}) as Record<string, any>;
+    const gradeScore = normalizeGradeScore(identifiedPayload.gradeScore);
 
     const playerName = cleanText(fields.playerName) ?? "Unknown Player";
     const cardTitle = computeCardTitle(fields);
@@ -430,7 +439,8 @@ class ScanCorrectionServiceImpl implements ScanCorrectionService {
           card_number: normalized.card_number,
           team: normalized.team,
           metadata: {
-            correctionSource: "manual_edit"
+            correctionSource: "manual_edit",
+            gradeScore
           }
         })
         .eq("id", cardId);
@@ -449,7 +459,7 @@ class ScanCorrectionServiceImpl implements ScanCorrectionService {
           team: normalized.team,
           position: null,
           rarity_label: null,
-          metadata: { correctionSource: "manual_edit" }
+          metadata: { correctionSource: "manual_edit", gradeScore }
         })
         .select("id")
         .single();
@@ -457,24 +467,16 @@ class ScanCorrectionServiceImpl implements ScanCorrectionService {
       cardId = inserted.id;
 
       // Preserve a usable reference value when this becomes a brand new card.
-      const { data: scanRow, error: scanError } = await supabase
-        .from("scans")
-        .select("identified_payload")
-        .eq("id", scanId)
-        .maybeSingle();
-      if (scanError) throw scanError;
-
-      const payload = (scanRow?.identified_payload ?? {}) as Record<string, any>;
-      const referenceValue = Number(payload.referenceValue ?? 0);
+      const referenceValue = Number(identifiedPayload.referenceValue ?? 0);
       if (referenceValue > 0) {
         await supabase.from("valuation_snapshots").insert({
           card_id: cardId,
           reference_value: referenceValue,
           source: "manual_edit_fallback",
-          condition_basis: payload.conditionEstimate ?? "Unspecified",
+          condition_basis: identifiedPayload.conditionEstimate ?? "Unspecified",
           fetched_at: new Date().toISOString(),
           currency: "USD",
-          source_confidence: Number(payload.confidence ?? 0) || null,
+          source_confidence: Number(identifiedPayload.confidence ?? 0) || null,
           metadata: {
             createdBy: "manual_edit",
             basedOnScanId: scanId

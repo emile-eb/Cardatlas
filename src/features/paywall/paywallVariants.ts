@@ -26,35 +26,35 @@ export type PaywallVariantContent = {
 export const PAYWALL_VARIANTS: Record<PaywallVariantKey, PaywallVariantContent> = {
   discovery: {
     heroKicker: "CARDATLAS PRO",
-    headline: "Unlock Unlimited Card Scans",
+    headline: "Upgrade to CardAtlas Pro",
     subheadline:
-      "Reveal rarity, track your collection, and unlock the full collector intelligence experience."
+      "Unlimited scans, collection tools, market context, and Collector AI."
   },
   scan_limit: {
-    heroKicker: "SCAN LIMIT REACHED",
-    headline: "You've used all your free scans",
-    subheadline: "Unlock unlimited scanning and continue discovering cards.",
-    urgencyLabel: "Continue scanning now"
+    heroKicker: "CARDATLAS PRO",
+    headline: "Keep scanning with CardAtlas Pro",
+    subheadline: "Unlimited scans plus the premium collector workflow.",
+    urgencyLabel: "Continue scanning"
   },
   session_gate: {
-    heroKicker: "WELCOME BACK",
-    headline: "Unlock deeper collector intelligence",
-    subheadline: "Get unlimited scans, premium market reads, and AI guidance built for returning collectors."
+    heroKicker: "CARDATLAS PRO",
+    headline: "Unlock the serious collector workflow",
+    subheadline: "Collection tools, market visibility, grading insight, and Collector AI."
   },
   ai_gate: {
-    heroKicker: "AI COLLECTOR EXPERT",
-    headline: "Unlock CardAtlas AI",
-    subheadline: "Get card-aware grading guidance, market interpretation, and collector decision support built into every scan."
+    heroKicker: "COLLECTOR AI",
+    headline: "Unlock Collector AI",
+    subheadline: "Card-aware market context and grading guidance inside CardAtlas Pro."
   },
   settings_upgrade: {
     heroKicker: "CARDATLAS PRO",
-    headline: "Upgrade your collector toolkit",
-    subheadline: "Unlock unlimited scans, deeper market data, and premium features across your collection."
+    headline: "Upgrade to CardAtlas Pro",
+    subheadline: "Unlimited scans, collection tracking, market tools, and Collector AI."
   },
   premium_feature_gate: {
-    heroKicker: "PREMIUM FEATURE",
-    headline: "Unlock deeper market intelligence",
-    subheadline: "Access premium charts, advanced insights, and the full CardAtlas collector workflow."
+    heroKicker: "CARDATLAS PRO",
+    headline: "Unlock premium collector intelligence",
+    subheadline: "Live market visibility, price history, grading context, and Collector AI."
   }
 };
 

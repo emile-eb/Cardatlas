@@ -40,6 +40,7 @@ export type CardItem = {
   team: string;
   position: string;
   referenceValue: number;
+  gradeScore?: number | null;
   gradedUpside?: number;
   rarityLevel: RarityLevel;
   rarityLabel: "Common" | "Notable" | "Rare" | "Elite" | "Grail";

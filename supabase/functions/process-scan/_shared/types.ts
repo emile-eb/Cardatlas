@@ -10,6 +10,8 @@ export interface StructuredCardIdentification {
   position: string | null;
   rarityLabel: string | null;
   conditionEstimate: string;
+  gradeScore: number | null;
+  gradeScoreReason?: string | null;
   confidence: number;
   description: string;
   playerInfo: {

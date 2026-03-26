@@ -1,25 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import {
+  Animated,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingPaywallFlow } from "@/components/paywall/OnboardingPaywallFlow";
+import { OnboardingPaywallPlanSelector } from "@/components/paywall/onboarding/OnboardingPaywallPlanSelector";
 import { useAppState } from "@/state/AppState";
-import { PaywallHero } from "@/components/paywall/PaywallHero";
-import { PaywallPlanSelector, orderPlans } from "@/components/paywall/PaywallPlanSelector";
-import { PaywallCTA } from "@/components/paywall/PaywallCTA";
 import { PaywallFooterLinks } from "@/components/paywall/PaywallFooterLinks";
 import {
-  PAYWALL_VARIANTS,
   analyticsLabelForPaywallEntryPoint,
   resolvePaywallEntryPoint,
   resolvePaywallVariant
 } from "@/features/paywall/paywallVariants";
-import { colors } from "@/theme/tokens";
 import type { PaywallPlanViewModel } from "@/types";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
-import { InlineLoadingState } from "@/components/loading/InlineLoadingState";
+import { standardTopInset } from "@/theme/safeArea";
+import { layout, shadows, typography } from "@/theme/tokens";
+import { orderPlans } from "@/components/paywall/PaywallPlanSelector";
 
 function preferredPlan(plans: PaywallPlanViewModel[]): PaywallPlanViewModel | null {
   return plans.find((plan) => plan.isRecommended) ?? plans[0] ?? null;
@@ -27,7 +33,6 @@ function preferredPlan(plans: PaywallPlanViewModel[]): PaywallPlanViewModel | nu
 
 export default function PaywallScreen() {
   const params = useLocalSearchParams<{ source?: string; cardId?: string }>();
-  const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const {
     dismissOnboardingPaywall,
@@ -39,10 +44,7 @@ export default function PaywallScreen() {
 
   const entryPoint = resolvePaywallEntryPoint(params.source);
   const variantKey = resolvePaywallVariant(params.source);
-  const variant = PAYWALL_VARIANTS[variantKey];
   const fromOnboarding = entryPoint === "onboarding" || entryPoint === "startup";
-
-  const heroHeight = useMemo(() => Math.max(320, Math.round(height * 0.58)), [height]);
 
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<PaywallPlanViewModel[]>([]);
@@ -50,36 +52,21 @@ export default function PaywallScreen() {
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
 
-  const heroFade = useRef(new Animated.Value(0)).current;
-  const sheetEntrance = useRef(new Animated.Value(0)).current;
+  const pageEntrance = useRef(new Animated.Value(0)).current;
 
   const selectedPlan = useMemo(
     () => plans.find((plan) => plan.packageId === selectedPackageId) ?? plans[0] ?? null,
     [plans, selectedPackageId]
   );
-  const trialMessage = selectedPlan?.hasTrial
-    ? selectedPlan.trialLabel ?? "Free trial included with this plan."
-    : selectedPlan
-      ? `No free trial on the ${selectedPlan.title.toLowerCase()} plan.`
-      : null;
 
   useEffect(() => {
-    heroFade.setValue(0);
-    sheetEntrance.setValue(0);
-    Animated.parallel([
-      Animated.timing(heroFade, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true
-      }),
-      Animated.timing(sheetEntrance, {
-        toValue: 1,
-        duration: 280,
-        delay: 60,
-        useNativeDriver: true
-      })
-    ]).start();
-  }, [heroFade, sheetEntrance, variantKey]);
+    pageEntrance.setValue(0);
+    Animated.timing(pageEntrance, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true
+    }).start();
+  }, [pageEntrance, variantKey]);
 
   useEffect(() => {
     setLoading(true);
@@ -214,11 +201,11 @@ export default function PaywallScreen() {
     setStatusText(result.message);
   };
 
-  const sheetStyle = {
-    opacity: sheetEntrance,
+  const pageStyle = {
+    opacity: pageEntrance,
     transform: [
       {
-        translateY: sheetEntrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] })
+        translateY: pageEntrance.interpolate({ inputRange: [0, 1], outputRange: [12, 0] })
       }
     ]
   };
@@ -242,67 +229,52 @@ export default function PaywallScreen() {
 
   return (
     <View style={styles.screen}>
-      <Animated.View style={[styles.heroSection, { height: heroHeight, opacity: heroFade }]}>
-        <PaywallHero variant={variant} onClose={closePaywall} />
-      </Animated.View>
-
-      <Animated.View style={[styles.contentSection, sheetStyle]}>
-        <LinearGradient
-          colors={["rgba(7,10,16,0.06)", "rgba(10,14,22,0.80)", "rgba(10,14,22,0.96)"]}
-          locations={[0, 0.36, 1]}
-          style={styles.contentSurface}
+      <LinearGradient colors={["#FEFDFC", "#FFFFFF", "#F8F9FB"]} locations={[0, 0.42, 1]} style={styles.background}>
+      <Animated.View style={[styles.page, pageStyle]}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingBottom: Math.max(insets.bottom + 18, 30)
+            }
+          ]}
         >
-            <ScrollView
-              contentContainerStyle={[styles.contentScroll, { paddingBottom: Math.max(insets.bottom + 18, 30) }]}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.trialPill}>
-                <View style={styles.trialCopyWrap}>
-                  <Text style={styles.trialPillText}>
-                    {selectedPlan?.hasTrial ? "Free trial available" : "Trial availability"}
-                  </Text>
-                  <Text style={styles.trialPillSubtext}>
-                    {trialMessage ?? "Select a plan to see trial details."}
-                  </Text>
-                </View>
-                <View style={[styles.trialStateBadge, selectedPlan?.hasTrial ? styles.trialStateBadgeOn : styles.trialStateBadgeOff]}>
-                  <Text style={[styles.trialStateText, selectedPlan?.hasTrial ? styles.trialStateTextOn : styles.trialStateTextOff]}>
-                    {selectedPlan?.hasTrial ? "Included" : "None"}
-                  </Text>
-                </View>
+          <View style={[styles.topBar, { paddingTop: standardTopInset(insets.top) + layout.pagePadding }]}>
+            <View style={styles.navSpacer} />
+            <Pressable onPress={closePaywall} style={styles.closeButton}>
+              <Ionicons name="close" size={18} color="#151B24" />
+            </Pressable>
+          </View>
+
+          <View style={styles.stepWrap}>
+            <View style={styles.step}>
+              <View style={styles.pricingHeader}>
+                <Text style={styles.pricingHeadline}>Start your 3-day FREE trial to continue</Text>
               </View>
 
-              <View style={styles.planBlock}>
-                <Text style={styles.planLabel}>Choose your plan</Text>
-              {loading ? (
-                <InlineLoadingState
-                  tone="dark"
-                  title="Loading live plans"
-                  message="Preparing your current CardAtlas Pro options."
-                  minHeight={108}
-                />
-              ) : plans.length === 0 ? (
-                <InlineLoadingState
-                  tone="dark"
-                  title="Plans unavailable"
-                  message="We couldn't load pricing right now. Try again shortly."
-                  minHeight={108}
-                />
-              ) : (
-                <PaywallPlanSelector
-                  plans={plans}
-                  selectedPackageId={selectedPackageId}
-                  onSelect={setSelectedPackageId}
-                  disabled={busy}
-                />
-              )}
-            </View>
+              <OnboardingPaywallPlanSelector
+                loading={loading}
+                plans={plans}
+                selectedPackageId={selectedPackageId}
+                onSelect={setSelectedPackageId}
+                selectedPlan={selectedPlan}
+                busy={busy}
+                statusText={statusText}
+                onPurchase={handlePurchase}
+              />
 
-            <PaywallCTA selectedPlan={selectedPlan} busy={busy} statusText={statusText} onPurchase={handlePurchase} />
-            <PaywallFooterLinks onRestore={handleRestore} restoreBusy={busy} />
-          </ScrollView>
-        </LinearGradient>
+              <PaywallFooterLinks
+                onRestore={handleRestore}
+                restoreBusy={busy}
+                tone="light"
+                showLegal={false}
+              />
+            </View>
+          </View>
+        </ScrollView>
       </Animated.View>
+      </LinearGradient>
     </View>
   );
 }
@@ -310,99 +282,61 @@ export default function PaywallScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#070A11"
+    backgroundColor: "#FFFFFF"
   },
-  heroSection: {
-    position: "relative"
+  background: {
+    flex: 1
   },
-  contentSection: {
-    flex: 1,
-    marginTop: -26,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: "hidden",
-    shadowColor: "#000000",
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -6 },
-    elevation: 10
+  page: {
+    flex: 1
   },
-  contentSurface: {
-    flex: 1,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    backgroundColor: "#0D121B",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(225,232,244,0.14)"
-  },
-  contentScroll: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 30
-  },
-  planBlock: {
-    marginTop: 12,
-    gap: 9
-  },
-  trialPill: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(227,235,247,0.18)",
-    backgroundColor: "rgba(18,24,38,0.92)",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginBottom: 10,
+  topBar: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between"
+    justifyContent: "space-between",
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 6
   },
-  trialCopyWrap: {
-    flex: 1,
-    paddingRight: 12
+  navSpacer: {
+    width: 36,
+    height: 36
   },
-  trialPillText: {
-    color: "#E9EFF9",
-    fontSize: 13,
-    fontFamily: "Inter-Medium"
-  },
-  trialPillSubtext: {
-    color: "#A5B0C2",
-    fontSize: 11,
-    lineHeight: 14,
-    marginTop: 2,
-    fontFamily: "Inter-Regular"
-  },
-  trialStateBadge: {
-    minWidth: 64,
-    height: 28,
-    borderRadius: 14,
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
+    borderColor: "rgba(20,27,37,0.08)",
+    backgroundColor: "rgba(255,255,255,0.92)",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10
+    ...shadows.cardShadow
   },
-  trialStateBadgeOn: {
-    backgroundColor: "rgba(225,6,0,0.14)",
-    borderColor: "rgba(225,6,0,0.34)"
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 22,
+    paddingBottom: 30
   },
-  trialStateBadgeOff: {
-    backgroundColor: "#121826",
-    borderColor: "rgba(238,244,255,0.16)"
+  stepWrap: {
+    flex: 1
   },
-  trialStateText: {
-    fontSize: 11,
-    fontFamily: "Inter-SemiBold"
+  step: {
+    flex: 1,
+    minHeight: "100%"
   },
-  trialStateTextOn: {
-    color: "#FFD7D4"
+  pricingHeader: {
+    paddingTop: 26,
+    gap: 10,
+    alignItems: "center"
   },
-  trialStateTextOff: {
-    color: "#A5B0C2"
-  },
-  planLabel: {
-    color: "#DEE4EF",
-    fontSize: 13,
-    fontFamily: "Inter-Medium"
-  },
+  pricingHeadline: {
+    ...typography.H1,
+    color: "#10161F",
+    fontFamily: "Inter-Bold",
+    fontSize: 34,
+    lineHeight: 38,
+    letterSpacing: -0.7,
+    textAlign: "center"
+  }
 });

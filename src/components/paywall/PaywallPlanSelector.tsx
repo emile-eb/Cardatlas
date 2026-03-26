@@ -18,27 +18,32 @@ export function PaywallPlanSelector({
   selectedPackageId,
   onSelect,
   disabled,
-  tone = "dark"
+  tone = "dark",
+  compact = false
 }: {
   plans: PaywallPlanViewModel[];
   selectedPackageId: string | null;
   onSelect: (packageId: string) => void;
   disabled?: boolean;
   tone?: "dark" | "light";
+  compact?: boolean;
 }) {
   const ordered = orderPlans(plans);
+  const useTwoUpLayout = compact && ordered.length <= 2;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, compact ? styles.wrapCompact : null, useTwoUpLayout ? styles.wrapGrid : null]}>
       {ordered.map((plan) => (
-        <PaywallPlanCard
-          key={plan.packageId}
-          plan={plan}
-          selected={selectedPackageId === plan.packageId}
-          onPress={() => onSelect(plan.packageId)}
-          disabled={disabled}
-          tone={tone}
-        />
+        <View key={plan.packageId} style={useTwoUpLayout ? styles.gridItem : null}>
+          <PaywallPlanCard
+            plan={plan}
+            selected={selectedPackageId === plan.packageId}
+            onPress={() => onSelect(plan.packageId)}
+            disabled={disabled}
+            tone={tone}
+            compact={compact}
+          />
+        </View>
       ))}
     </View>
   );
@@ -46,7 +51,17 @@ export function PaywallPlanSelector({
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: 8
+    gap: 12
+  },
+  wrapCompact: {
+    gap: 10
+  },
+  wrapGrid: {
+    flexDirection: "row",
+    gap: 10
+  },
+  gridItem: {
+    flex: 1
   }
 });
 

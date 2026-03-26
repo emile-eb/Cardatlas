@@ -51,18 +51,18 @@ const styles = StyleSheet.create({
   },
   titleRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 8
   },
   accent: {
     width: 3,
-    height: 16,
+    alignSelf: "stretch",
     borderRadius: 999,
     backgroundColor: "#E10600"
   },
   copy: {
     flex: 1,
-    gap: 1
+    gap: 2
   },
   eyebrow: {
     ...typography.Caption,

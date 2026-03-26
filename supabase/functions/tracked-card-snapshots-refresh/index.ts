@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { clean, fetchSegmentedActiveMarketSnapshot, loadCardIdentity, loadLatestReferenceValue } from "../_shared/activeMarketSnapshot.ts";
+import { evaluateMarketNotificationsForSnapshot } from "../_shared/marketNotifications.ts";
 import {
   loadTrackedCardPool,
   normalizePoolLimit,
@@ -280,6 +281,22 @@ Deno.serve(async (req) => {
             next_refresh_at: cadence.nextRefreshAt,
             cadence_reason: cadence.cadenceReason
           });
+
+          try {
+            await evaluateMarketNotificationsForSnapshot(service, {
+              cardId: cardKey,
+              snapshotAt,
+              latestSnapshot: {
+                raw_avg_ask: payload.raw_avg_ask,
+                listing_count_raw: payload.listing_count_raw
+              }
+            });
+          } catch (notificationError) {
+            debugLog("notification_evaluation_failed", {
+              cardId: cardKey,
+              reason: notificationError instanceof Error ? notificationError.message : String(notificationError)
+            });
+          }
         }
 
         summary.insertedCount += 1;

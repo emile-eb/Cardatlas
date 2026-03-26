@@ -1,6 +1,7 @@
 import { getRequiredSupabaseClient } from "@/lib/supabase/client";
 import type { CardItem } from "@/types/models";
 import type { ProcessScanResponse, ScanJobStatus, UUID } from "@/types";
+import { normalizeGradeScore } from "@/utils/gradeScore";
 import { rarityFromPrice } from "@/utils/rarity";
 
 export interface ProcessedScanResult {
@@ -40,13 +41,17 @@ function toCardItem(scan: any, card: any | null, valuation: any | null): CardIte
   if (!card && !scan.identified_payload) return null;
 
   const payload = (scan.identified_payload ?? {}) as Record<string, any>;
+  const metadata = ((card?.metadata ?? {}) as Record<string, any>) || {};
   const playerInfo = payload.playerInfo ?? {};
   const playerName = card?.player_name ?? payload.playerName ?? "Unknown Player";
   const cardTitle = card?.card_title ?? payload.cardTitle ?? "Unidentified Card";
 
-  const referenceValue = Number(valuation?.reference_value ?? payload.referenceValue ?? 0);
+  const valuationReferenceValue = valuation?.reference_value ?? null;
+  const payloadReferenceValue = payload.referenceValue ?? null;
+  const referenceValue = Number(valuationReferenceValue ?? payloadReferenceValue ?? 0);
   const { rarityLabel, rarityLevel } = rarityFromPrice(referenceValue);
-  return {
+  const resolvedGradeScore = normalizeGradeScore(payload.gradeScore ?? metadata.gradeScore);
+  const mappedCard = {
     id: scan.id,
     sport: card?.sport ?? payload.sport ?? undefined,
     sourceScanId: scan.id,
@@ -69,6 +74,7 @@ function toCardItem(scan: any, card: any | null, valuation: any | null): CardIte
     team: card?.team ?? payload.team ?? "Unknown",
     position: card?.position ?? payload.position ?? "",
     referenceValue,
+    gradeScore: resolvedGradeScore,
     gradedUpside: Number(payload.gradedUpside ?? (payload.referenceValue ? Number(payload.referenceValue) * 1.35 : 0)),
     rarityLevel,
     rarityLabel,
@@ -82,6 +88,27 @@ function toCardItem(scan: any, card: any | null, valuation: any | null): CardIte
     imageBack: scan.back_image_url ?? scan.front_image_url ?? "",
     dateScanned: scan.scanned_at
   };
+
+  console.log("[grade_score][scan_processing_service]", {
+    scanId: scan.id,
+    cardId: card?.id ?? null,
+    payloadGradeScore: payload.gradeScore ?? null,
+    metadataGradeScore: metadata.gradeScore ?? null,
+    resolvedGradeScore,
+    playerName: mappedCard.playerName
+  });
+
+  console.log("[reference_value][scan_processing_service]", {
+    scanId: scan.id,
+    cardId: card?.id ?? null,
+    playerName: mappedCard.playerName,
+    valuationReferenceValue,
+    payloadReferenceValue,
+    resolvedReferenceValue: referenceValue,
+    valueSource: payload.valueSource ?? null
+  });
+
+  return mappedCard;
 }
 
 class ScanProcessingServiceImpl implements ScanProcessingService {

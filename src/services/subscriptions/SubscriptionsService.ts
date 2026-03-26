@@ -46,17 +46,6 @@ function getWebPreviewPaywall(): PaywallViewModel {
         trialLabel: "3-day free trial",
         hasTrial: true,
         isRecommended: false
-      },
-      {
-        productId: "pro_weekly",
-        packageId: "$rc_weekly",
-        title: "Weekly",
-        priceLabel: "$4.99",
-        billingLabel: "Per week",
-        billingPeriod: "weekly",
-        trialLabel: "3-day free trial",
-        hasTrial: true,
-        isRecommended: false
       }
     ]
   };
@@ -125,7 +114,9 @@ function mapOfferingToPaywall(offer: RevenueCatOfferingModel | null): PaywallVie
     };
   }
 
-  const plans = offer.packages.map((pkg) => {
+  const plans = offer.packages
+    .filter((pkg) => pkg.billingPeriod !== "weekly")
+    .map((pkg) => {
     const billingLabel =
       pkg.billingPeriod === "weekly"
         ? "Per week"
@@ -146,7 +137,7 @@ function mapOfferingToPaywall(offer: RevenueCatOfferingModel | null): PaywallVie
       hasTrial: Boolean(pkg.trialDescription),
       isRecommended: Boolean(pkg.isRecommended)
     };
-  });
+    });
 
   return {
     loading: false,

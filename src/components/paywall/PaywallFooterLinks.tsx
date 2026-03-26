@@ -13,11 +13,13 @@ async function openUrl(url: string) {
 export function PaywallFooterLinks({
   onRestore,
   restoreBusy = false,
-  tone = "dark"
+  tone = "dark",
+  showLegal = true
 }: {
   onRestore: () => void;
   restoreBusy?: boolean;
   tone?: "dark" | "light";
+  showLegal?: boolean;
 }) {
   return (
     <View style={styles.row}>
@@ -26,28 +28,32 @@ export function PaywallFooterLinks({
           {restoreBusy ? "Restoring..." : "Restore Purchases"}
         </Text>
       </Pressable>
-      <Pressable onPress={() => void openUrl(TERMS_URL)}>
-        <Text style={[styles.link, tone === "light" ? styles.linkLight : null]}>Terms of Use</Text>
-      </Pressable>
-      <Pressable onPress={() => void openUrl(PRIVACY_URL)}>
-        <Text style={[styles.link, tone === "light" ? styles.linkLight : null]}>Privacy Policy</Text>
-      </Pressable>
+      {showLegal ? (
+        <>
+          <Pressable onPress={() => void openUrl(TERMS_URL)}>
+            <Text style={[styles.link, tone === "light" ? styles.linkLight : null]}>Terms of Use</Text>
+          </Pressable>
+          <Pressable onPress={() => void openUrl(PRIVACY_URL)}>
+            <Text style={[styles.link, tone === "light" ? styles.linkLight : null]}>Privacy Policy</Text>
+          </Pressable>
+        </>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   row: {
-    marginTop: 10,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     flexWrap: "wrap",
-    gap: 14
+    gap: 12
   },
   link: {
     ...typography.Caption,
-    color: "#9EA8B9"
+    color: "#8A94A4"
   },
   linkPressed: {
     opacity: 0.68
@@ -56,6 +62,6 @@ const styles = StyleSheet.create({
     opacity: 0.72
   },
   linkLight: {
-    color: "#70798A"
+    color: "#7B8596"
   }
 });

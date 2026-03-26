@@ -43,7 +43,7 @@ export function ResultDetails({
   topSpacerHeight = 0,
   contentContainerStyle
 }: Props) {
-  const { cards, addCardToCollection, addProcessedScanToCollection, enterAiOrPaywall } = useAppState();
+  const { cards, addCardToCollection, addProcessedScanToCollection, enterAiOrPaywall, premium, presentPaywall } = useAppState();
   const { preferences } = useAppPreferences();
   const insets = useSafeAreaInsets();
   const [heroRevealPulseToken, setHeroRevealPulseToken] = useState(0);
@@ -102,6 +102,16 @@ export function ResultDetails({
           }
         : undefined;
 
+  console.log("[grade_score][result_details]", {
+    cardId: card.id,
+    sourceCardId: card.sourceCardId ?? null,
+    sourceScanId: sourceScanId ?? null,
+    playerName: card.playerName,
+    gradeScore: card.gradeScore ?? null,
+    rarityLabel: card.rarityLabel ?? null,
+    referenceValue: card.referenceValue ?? null
+  });
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -137,6 +147,7 @@ export function ResultDetails({
         <ValuePanel
           value={displayValue}
           condition={`Condition ${card.condition}`}
+          gradeScore={card.gradeScore}
           rarityLabel={card.rarityLabel}
           rarityLevel={card.rarityLevel}
           enableRarityReveal
@@ -180,6 +191,13 @@ export function ResultDetails({
                       cardId: recentSalesCardId ?? card.id,
                       sourceScanId: sourceScanId ?? undefined
                     });
+                    if (!premium) {
+                      presentPaywall(
+                        "premium_feature_gate",
+                        recentSalesCardId ? { cardId: recentSalesCardId } : undefined
+                      );
+                      return;
+                    }
                     router.push({ pathname: "/results/price-history/[id]", params: detailRouteParams });
                   }
                 : undefined

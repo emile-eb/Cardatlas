@@ -45,6 +45,13 @@ function asOptionalNumber(value: unknown): number | null {
   return num;
 }
 
+function normalizeGradeScore(value: unknown): number | null {
+  const num = asOptionalNumber(value);
+  if (num == null) return null;
+  const clamped = Math.min(10, Math.max(0, num));
+  return Number(clamped.toFixed(2));
+}
+
 function asOptionalConfidence(value: unknown): "high" | "medium" | "low" | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim().toLowerCase();
@@ -69,7 +76,7 @@ export function parseStructuredIdentification(payload: unknown): StructuredCardI
     throw new Error("Invalid structured output: confidence must be between 0 and 1.");
   }
 
-  return {
+  const parsed = {
     sport: asRequiredString(payload.sport, "sport"),
     playerName: asRequiredString(payload.playerName, "playerName"),
     cardTitle: asRequiredString(payload.cardTitle, "cardTitle"),
@@ -81,6 +88,8 @@ export function parseStructuredIdentification(payload: unknown): StructuredCardI
     position: asNullableString(payload.position),
     rarityLabel: asNullableString(payload.rarityLabel),
     conditionEstimate: asRequiredString(payload.conditionEstimate, "conditionEstimate"),
+    gradeScore: normalizeGradeScore(payload.gradeScore),
+    gradeScoreReason: asNullableString(payload.gradeScoreReason),
     confidence,
     description: asRequiredString(payload.description, "description"),
     playerInfo: {
@@ -98,4 +107,17 @@ export function parseStructuredIdentification(payload: unknown): StructuredCardI
     reviewNeeded: Boolean(payload.reviewNeeded),
     reviewReason: asNullableString(payload.reviewReason)
   };
+
+  console.log(
+    "[grade_score][structured_output]",
+    JSON.stringify({
+      playerName: parsed.playerName,
+      cardTitle: parsed.cardTitle,
+      rawGradeScore: payload.gradeScore ?? null,
+      parsedGradeScore: parsed.gradeScore,
+      gradeScoreReason: parsed.gradeScoreReason ?? null
+    })
+  );
+
+  return parsed;
 }

@@ -2,8 +2,8 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { parseStructuredIdentification } from "./structuredOutput.ts";
 import { createRecognitionProvider } from "./providers.ts";
+import { fetchSegmentedActiveMarketSnapshot } from "../../_shared/activeMarketSnapshot.ts";
 import type { ProcessScanResponse, StructuredCardIdentification } from "./types.ts";
-import { ensureTrackedCard } from "../../_shared/trackedCards.ts";
 
 const LOW_CONFIDENCE_THRESHOLD = 0.55;
 const REVIEW_THRESHOLD = 0.85;
@@ -51,6 +51,26 @@ function rarityLabelFromPrice(referenceValue: number): "Common" | "Notable" | "R
   return "Common";
 }
 
+function roundCurrency(value: number): number {
+  return Number(value.toFixed(2));
+}
+
+function buildCardMetadata(identification: StructuredCardIdentification) {
+  return {
+    source: identification.valueSource,
+    gradeScore: identification.gradeScore ?? null,
+    gradeScoreReason: identification.gradeScoreReason ?? null,
+    normalizedKey: {
+      sport: normalize(identification.sport),
+      player: normalize(identification.playerName),
+      year: identification.year,
+      brand: normalize(identification.brand),
+      set: normalize(identification.setName),
+      number: normalize(identification.cardNumber)
+    }
+  };
+}
+
 function classifyOutcome(result: StructuredCardIdentification): {
   status: "completed" | "needs_review" | "failed";
   reviewReason: string | null;
@@ -91,7 +111,7 @@ function classifyOutcome(result: StructuredCardIdentification): {
 async function findOrCreateCardFromProcessedResult(
   service: any,
   identification: StructuredCardIdentification,
-  input: { frontImagePath: string | null; backImagePath: string | null }
+  input: { frontImagePath: string | null; backImagePath: string | null; referenceValue?: number | null }
 ): Promise<string> {
   const { data: existing, error: existingError } = await service
     .from("cards")
@@ -105,7 +125,11 @@ async function findOrCreateCardFromProcessedResult(
     .maybeSingle();
 
   if (existingError) throw existingError;
-  const computedRarityLabel = rarityLabelFromPrice(identification.referenceValue);
+  const resolvedReferenceValue =
+    Number.isFinite(Number(input.referenceValue)) && Number(input.referenceValue) > 0
+      ? Number(input.referenceValue)
+      : identification.referenceValue;
+  const computedRarityLabel = rarityLabelFromPrice(resolvedReferenceValue);
   if (existing?.id) {
     await service
       .from("cards")
@@ -117,17 +141,7 @@ async function findOrCreateCardFromProcessedResult(
         description: identification.description,
         era: identification.playerInfo.era,
         player_info: identification.playerInfo,
-        metadata: {
-          source: identification.valueSource,
-          normalizedKey: {
-            sport: normalize(identification.sport),
-            player: normalize(identification.playerName),
-            year: identification.year,
-            brand: normalize(identification.brand),
-            set: normalize(identification.setName),
-            number: normalize(identification.cardNumber)
-          }
-        },
+        metadata: buildCardMetadata(identification),
         canonical_front_image_path: input.frontImagePath,
         canonical_back_image_path: input.backImagePath
       })
@@ -151,17 +165,7 @@ async function findOrCreateCardFromProcessedResult(
       era: identification.playerInfo.era,
       description: identification.description,
       player_info: identification.playerInfo,
-      metadata: {
-        source: identification.valueSource,
-        normalizedKey: {
-          sport: normalize(identification.sport),
-          player: normalize(identification.playerName),
-          year: identification.year,
-          brand: normalize(identification.brand),
-          set: normalize(identification.setName),
-          number: normalize(identification.cardNumber)
-        }
-      },
+      metadata: buildCardMetadata(identification),
       canonical_front_image_path: input.frontImagePath,
       canonical_back_image_path: input.backImagePath
     })
@@ -172,10 +176,96 @@ async function findOrCreateCardFromProcessedResult(
   return created.id;
 }
 
+async function resolveWeightedReferenceValue(
+  identification: StructuredCardIdentification,
+  cardId: string
+): Promise<{
+  referenceValue: number;
+  rawAvgAsk: number | null;
+  appliedWeighting: boolean;
+}> {
+  const gptReferenceValue = Number(identification.referenceValue ?? 0);
+  if (!Number.isFinite(gptReferenceValue) || gptReferenceValue <= 0) {
+    return {
+      referenceValue: 0,
+      rawAvgAsk: null,
+      appliedWeighting: false
+    };
+  }
+
+  try {
+    const market = await fetchSegmentedActiveMarketSnapshot(
+      {
+        cardId,
+        sport: identification.sport ?? null,
+        playerName: identification.playerName,
+        cardTitle: identification.cardTitle,
+        year: identification.year ?? null,
+        brand: identification.brand ?? null,
+        setName: identification.setName ?? null,
+        cardNumber: identification.cardNumber ?? null,
+        team: identification.team ?? null
+      },
+      {
+        limit: 12,
+        referenceValue: gptReferenceValue
+      }
+    );
+
+    const rawAvgAsk = Number(market?.marketSummary?.raw_avg_ask ?? 0);
+    if (!Number.isFinite(rawAvgAsk) || rawAvgAsk <= 0) {
+      console.log("[reference_value][weighting_skipped]", {
+        cardId,
+        playerName: identification.playerName,
+        gptReferenceValue,
+        rawAvgAsk: market?.marketSummary?.raw_avg_ask ?? null,
+        listingCountRaw: market?.marketSummary?.listing_count_raw ?? null,
+        reason: "missing_raw_average"
+      });
+      return {
+        referenceValue: roundCurrency(gptReferenceValue),
+        rawAvgAsk: null,
+        appliedWeighting: false
+      };
+    }
+
+    const weightedReferenceValue = roundCurrency(gptReferenceValue * 0.5 + rawAvgAsk * 0.5);
+    console.log("[reference_value][weighting_applied]", {
+      cardId,
+      playerName: identification.playerName,
+      gptReferenceValue,
+      rawAvgAsk,
+      weightedReferenceValue,
+      listingCountRaw: market.marketSummary?.listing_count_raw ?? null
+    });
+
+    return {
+      referenceValue: weightedReferenceValue,
+      rawAvgAsk: roundCurrency(rawAvgAsk),
+      appliedWeighting: true
+    };
+  } catch (error) {
+    console.log("[reference_value][weighting_failed]", {
+      cardId,
+      playerName: identification.playerName,
+      gptReferenceValue,
+      reason: error instanceof Error ? error.message : String(error)
+    });
+    return {
+      referenceValue: roundCurrency(gptReferenceValue),
+      rawAvgAsk: null,
+      appliedWeighting: false
+    };
+  }
+}
+
 async function createValuationSnapshot(service: any, input: {
   cardId: string;
   scanId: string;
   identification: StructuredCardIdentification;
+  rawAvgAsk?: number | null;
+  appliedWeighting?: boolean;
+  originalReferenceValue?: number | null;
 }): Promise<string> {
   const { identification } = input;
   const { data, error } = await service
@@ -193,7 +283,10 @@ async function createValuationSnapshot(service: any, input: {
       source_confidence: identification.confidence,
       metadata: {
         reviewNeeded: identification.reviewNeeded,
-        providerValueSource: identification.valueSource
+        providerValueSource: identification.valueSource,
+        originalReferenceValue: input.originalReferenceValue ?? identification.referenceValue,
+        weightedWithRawAverageAsk: Boolean(input.appliedWeighting),
+        rawAvgAskUsed: input.rawAvgAsk ?? null
       }
     })
     .select("id")
@@ -290,13 +383,36 @@ export async function processScan(input: {
     if (outcome.status !== "failed") {
       cardId = await findOrCreateCardFromProcessedResult(service, identification, {
         frontImagePath: scan.front_image_path ?? null,
-        backImagePath: scan.back_image_path ?? null
+        backImagePath: scan.back_image_path ?? null,
+        referenceValue: identification.referenceValue
       });
+      const originalReferenceValue = identification.referenceValue;
+      const weightedReference = await resolveWeightedReferenceValue(identification, cardId);
+      const finalizedIdentification = {
+        ...identification,
+        referenceValue: weightedReference.referenceValue,
+        valueSource: weightedReference.appliedWeighting ? "weighted_active_market" : identification.valueSource
+      };
+
+      await service
+        .from("cards")
+        .update({
+          rarity_label: rarityLabelFromPrice(finalizedIdentification.referenceValue),
+          metadata: buildCardMetadata(finalizedIdentification)
+        })
+        .eq("id", cardId);
+
       valuationSnapshotId = await createValuationSnapshot(service, {
         cardId,
         scanId: scan.id,
-        identification
+        identification: finalizedIdentification,
+        rawAvgAsk: weightedReference.rawAvgAsk,
+        appliedWeighting: weightedReference.appliedWeighting,
+        originalReferenceValue
       });
+
+      identification.referenceValue = finalizedIdentification.referenceValue;
+      identification.valueSource = finalizedIdentification.valueSource;
     }
 
     await service
@@ -313,18 +429,6 @@ export async function processScan(input: {
         error_message: outcome.status === "failed" ? outcome.reviewReason : null
       })
       .eq("id", scan.id);
-
-    if (cardId && (outcome.status === "completed" || outcome.status === "needs_review")) {
-      try {
-        await ensureTrackedCard(service, cardId, "scan_auto");
-      } catch (trackingError) {
-        console.log("[process-scan] auto_tracking_failed", {
-          scanId: scan.id,
-          cardId,
-          reason: formatUnknownError(trackingError)
-        });
-      }
-    }
 
     return {
       scanId: scan.id,

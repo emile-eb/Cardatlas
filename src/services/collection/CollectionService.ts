@@ -123,7 +123,10 @@ class CollectionServiceImpl implements CollectionService {
         description: input.card.description,
         era: input.card.playerInfo?.era ?? null,
         player_info: input.card.playerInfo ?? null,
-        metadata: { source: "client_add_item" }
+        metadata: {
+          source: "client_add_item",
+          gradeScore: input.card.gradeScore ?? null
+        }
       },
       { onConflict: "id" }
     );

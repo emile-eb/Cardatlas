@@ -5,7 +5,6 @@ import { colors, typography } from "@/theme/tokens";
 
 function ctaTitle(plan: PaywallPlanViewModel | null): string {
   if (!plan) return "Continue";
-  if (plan.hasTrial && plan.trialLabel) return "Start free trial";
   return `Continue with ${plan.title}`;
 }
 
@@ -14,32 +13,28 @@ export function PaywallCTA({
   busy,
   statusText,
   onPurchase,
-  tone = "dark"
+  tone = "dark",
+  compact = false
 }: {
   selectedPlan: PaywallPlanViewModel | null;
   busy: boolean;
   statusText?: string | null;
   onPurchase: () => void;
   tone?: "dark" | "light";
+  compact?: boolean;
 }) {
-  const helperText = selectedPlan?.hasTrial
-    ? selectedPlan.trialLabel ?? "Free trial available"
-    : selectedPlan
-      ? `No free trial on the ${selectedPlan.title.toLowerCase()} plan.`
-      : null;
   const ctaStyle = tone === "light" ? { ...styles.cta, ...styles.ctaLight } : styles.cta;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, compact ? styles.wrapCompact : null]}>
       <PrimaryButton
         title={ctaTitle(selectedPlan)}
         onPress={onPurchase}
         disabled={!selectedPlan}
         pending={busy}
         pendingLabel="Processing..."
-        style={ctaStyle}
+        style={compact ? { ...ctaStyle, ...styles.ctaCompact } : ctaStyle}
       />
-      {helperText ? <Text style={[styles.helper, tone === "light" ? styles.helperLight : null]}>{helperText}</Text> : null}
       {statusText ? <Text style={[styles.status, tone === "light" ? styles.statusLight : null]}>{statusText}</Text> : null}
     </View>
   );
@@ -50,17 +45,24 @@ const styles = StyleSheet.create({
     marginTop: 18,
     gap: 7
   },
+  wrapCompact: {
+    marginTop: 10,
+    gap: 4
+  },
   cta: {
     backgroundColor: colors.accentPrimary,
-    borderRadius: 12,
-    minHeight: 56,
+    borderRadius: 18,
+    minHeight: 58,
     shadowColor: colors.accentPrimary,
-    shadowOpacity: 0.26,
+    shadowOpacity: 0.18,
     shadowOffset: { width: 0, height: 10 },
-    shadowRadius: 16
+    shadowRadius: 18
   },
   ctaLight: {
-    shadowOpacity: 0.16
+    shadowOpacity: 0.12
+  },
+  ctaCompact: {
+    minHeight: 52
   },
   status: {
     ...typography.bodySmall,
@@ -68,14 +70,6 @@ const styles = StyleSheet.create({
     textAlign: "center"
   },
   statusLight: {
-    color: "#3C4757"
-  },
-  helper: {
-    ...typography.bodySmall,
-    color: "#AEB8C9",
-    textAlign: "center"
-  },
-  helperLight: {
-    color: "#66707F"
+    color: "#596477"
   }
 });

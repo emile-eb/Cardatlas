@@ -81,7 +81,11 @@ class DashboardServiceImpl implements DashboardService {
                 team: card.team ?? undefined,
                 position: card.position ?? undefined,
                 description: card.description ?? undefined,
-                playerInfo: card.player_info ?? undefined
+                playerInfo: card.player_info ?? undefined,
+                gradeScore:
+                  (scan.identified_payload as Record<string, unknown> | null | undefined)?.gradeScore ??
+                  (card.metadata as Record<string, unknown> | null | undefined)?.gradeScore ??
+                  undefined
               }
             : {})
         };

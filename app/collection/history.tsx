@@ -6,6 +6,7 @@ import { useAppState } from "@/state/AppState";
 import { colors, layout, spacing, typography } from "@/theme/tokens";
 import { CardItem } from "@/types/models";
 import { PriceText } from "@/components/PriceText";
+import { formatGradeScore, normalizeGradeScore } from "@/utils/gradeScore";
 
 function getRelativeScanTime(isoDate: string) {
   const scannedAt = new Date(isoDate);
@@ -34,6 +35,8 @@ function getGroupLabel(isoDate: string) {
 }
 
 function HistoryRow({ item }: { item: CardItem }) {
+  const gradeScore = normalizeGradeScore(item.gradeScore);
+
   return (
     <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={() => router.push(`/results/${item.id}`)}>
       <Image source={{ uri: item.imageFront }} style={styles.image} />
@@ -46,7 +49,10 @@ function HistoryRow({ item }: { item: CardItem }) {
           <Text numberOfLines={1} style={styles.timeMeta}>{getRelativeScanTime(item.dateScanned)}</Text>
         </View>
       </View>
-      <PriceText value={item.referenceValue} style={styles.value} />
+      <View style={styles.valueWrap}>
+        <PriceText value={item.referenceValue} style={styles.value} />
+        {gradeScore != null ? <Text style={styles.gradeScore}>GS {formatGradeScore(gradeScore)}</Text> : null}
+      </View>
     </Pressable>
   );
 }
@@ -277,5 +283,15 @@ const styles = StyleSheet.create({
     fontFamily: "Inter-SemiBold",
     color: colors.accentPrimary,
     fontVariant: ["tabular-nums"]
+  },
+  valueWrap: {
+    alignItems: "flex-end",
+    minWidth: 82
+  },
+  gradeScore: {
+    ...typography.Caption,
+    marginTop: 4,
+    color: "#6B7280",
+    fontFamily: "Inter-SemiBold"
   }
 });
