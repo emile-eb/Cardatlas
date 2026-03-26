@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingPaywallFlow } from "@/components/paywall/OnboardingPaywallFlow";
 import { useAppState } from "@/state/AppState";
 import { PaywallHero } from "@/components/paywall/PaywallHero";
@@ -27,6 +28,7 @@ function preferredPlan(plans: PaywallPlanViewModel[]): PaywallPlanViewModel | nu
 export default function PaywallScreen() {
   const params = useLocalSearchParams<{ source?: string; cardId?: string }>();
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const {
     dismissOnboardingPaywall,
     loadPaywall,
@@ -250,7 +252,10 @@ export default function PaywallScreen() {
           locations={[0, 0.36, 1]}
           style={styles.contentSurface}
         >
-            <ScrollView contentContainerStyle={styles.contentScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              contentContainerStyle={[styles.contentScroll, { paddingBottom: Math.max(insets.bottom + 18, 30) }]}
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.trialPill}>
                 <View style={styles.trialCopyWrap}>
                   <Text style={styles.trialPillText}>

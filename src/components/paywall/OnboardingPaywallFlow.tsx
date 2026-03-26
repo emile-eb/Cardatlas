@@ -195,7 +195,10 @@ export function OnboardingPaywallFlow({
           </Pressable>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 18, 30) }]}
+        >
           <Animated.View style={[styles.stepWrap, animatedStepStyle]}>
             {stepIndex === 0 ? (
               <OnboardingPaywallStepOne heroHeight={heroHeight} stepIndex={stepIndex} onContinue={advance} />

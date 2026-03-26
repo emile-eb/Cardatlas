@@ -235,6 +235,7 @@ export default function OnboardingScreen() {
         contentContainerStyle={[
           styles.bodyContent,
           { paddingTop: guidedFlowBodyTopInset(insets.top) },
+          { paddingBottom: Math.max(insets.bottom, spacing.md) },
           isIntro && styles.bodyContentIntro
         ]}
       >
