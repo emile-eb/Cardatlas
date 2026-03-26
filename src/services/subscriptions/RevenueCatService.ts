@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import Purchases from "react-native-purchases";
 import type {
   PurchaseResult,
   RestoreResult,
@@ -11,14 +12,7 @@ const REVENUECAT_ENTITLEMENT_ID = "pro";
 
 function getNativePurchasesModule(): any | null {
   if (Platform.OS === "web") return null;
-  try {
-    // Avoid static module resolution on web bundling.
-    const dynamicRequire = Function("return require")();
-    const mod = dynamicRequire("react-native-purchases");
-    return mod?.default ?? mod;
-  } catch {
-    return null;
-  }
+  return Purchases;
 }
 
 function getNativePurchasesModuleOrThrow() {
