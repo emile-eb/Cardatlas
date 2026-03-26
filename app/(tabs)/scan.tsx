@@ -4,8 +4,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraCapturedPicture, FlashMode } from "expo-camera";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/state/AppState";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
+import { standardTopInset } from "@/theme/safeArea";
 import { pickImageFromDevice } from "@/utils/pickImage";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
@@ -144,6 +146,7 @@ function CameraFailureState({
 
 export default function ScanCameraTab() {
   const params = useLocalSearchParams<{ origin?: string; side?: string }>();
+  const insets = useSafeAreaInsets();
   const origin = typeof params.origin === "string" ? params.origin : null;
   const preferredSideParam: ScanSide = params.side === "back" ? "back" : "front";
   const isNativeCamera = Platform.OS !== "web";
@@ -418,7 +421,7 @@ export default function ScanCameraTab() {
 
   return (
     <View style={styles.liveScreen}>
-      <View style={styles.liveTopBar}>
+      <View style={[styles.liveTopBar, { paddingTop: standardTopInset(insets.top) + layout.pagePadding }]}>
         <Pressable style={styles.liveIconBtn} onPress={closeToOrigin}>
           <Ionicons name="close" size={22} color="#FFFFFF" />
         </Pressable>
@@ -498,7 +501,7 @@ export default function ScanCameraTab() {
         </View>
       </View>
 
-      <View style={styles.bottomTray}>
+      <View style={[styles.bottomTray, { paddingBottom: Math.max(insets.bottom + spacing.sm, 18) }]}>
         {currentSideCaptured ? (
           <Pressable style={styles.secondaryTrayBtn} onPress={retakeSide}>
             <Ionicons name="refresh-outline" size={18} color={colors.textPrimary} />
