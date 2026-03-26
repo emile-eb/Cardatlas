@@ -21,6 +21,16 @@ function getNativePurchasesModule(): any | null {
   }
 }
 
+function getNativePurchasesModuleOrThrow() {
+  const purchases = getNativePurchasesModule();
+  if (!purchases) {
+    throw new Error(
+      "react-native-purchases native module is unavailable on this build. Regenerate iOS with `npx expo prebuild --platform ios --clean`, run `pod install`, and rebuild from the Xcode workspace."
+    );
+  }
+  return purchases;
+}
+
 function toIso(value: unknown): string | null {
   if (!value) return null;
   const text = String(value);
@@ -136,14 +146,16 @@ class RevenueCatServiceImpl implements RevenueCatService {
   private configuredForUser: string | null = null;
 
   isAvailable() {
-    return Platform.OS !== "web";
+    return Platform.OS !== "web" && Boolean(getNativePurchasesModule());
   }
 
   async configure(appUserId: string): Promise<void> {
-    const purchases = getNativePurchasesModule();
-    if (!purchases) return;
+    const purchases = getNativePurchasesModuleOrThrow();
 
     if (this.configuredForUser === appUserId) {
+      if (__DEV__) {
+        console.log("[revenuecat] configure_skipped_already_configured", { appUserId });
+      }
       return;
     }
 
@@ -157,33 +169,50 @@ class RevenueCatServiceImpl implements RevenueCatService {
       appUserID: appUserId
     });
 
+    if (__DEV__) {
+      console.log("[revenuecat] configured", {
+        appUserId,
+        hasApiKey: Boolean(apiKey)
+      });
+    }
+
     this.configuredForUser = appUserId;
   }
 
   async getOfferings(): Promise<RevenueCatOfferingModel | null> {
-    const purchases = getNativePurchasesModule();
-    if (!purchases) return null;
+    const purchases = getNativePurchasesModuleOrThrow();
 
     const offerings = await purchases.getOfferings();
     const current = offerings?.current;
-    if (!current) return null;
+    if (__DEV__) {
+      console.log("[revenuecat] offerings_loaded", {
+        hasCurrentOffering: Boolean(current),
+        offeringKeys: Object.keys(offerings?.all ?? {}),
+        packageCount: Array.isArray(current?.availablePackages) ? current.availablePackages.length : 0
+      });
+    }
+    if (!current) {
+      throw new Error("RevenueCat returned no current offering for this user/build.");
+    }
 
     return mapOffering(current);
   }
 
   async getCustomerSnapshot(): Promise<RevenueCatCustomerSnapshot | null> {
-    const purchases = getNativePurchasesModule();
-    if (!purchases) return null;
+    const purchases = getNativePurchasesModuleOrThrow();
 
     const info = await purchases.getCustomerInfo();
+    if (__DEV__) {
+      console.log("[revenuecat] customer_info_loaded", {
+        originalAppUserId: info?.originalAppUserId ?? null,
+        activeEntitlements: Object.keys(info?.entitlements?.active ?? {})
+      });
+    }
     return mapCustomerInfo(info);
   }
 
   async purchasePackage(packageIdentifier: string): Promise<PurchaseResult> {
-    const purchases = getNativePurchasesModule();
-    if (!purchases) {
-      return { status: "failed", message: "Purchases are unavailable on web builds." };
-    }
+    const purchases = getNativePurchasesModuleOrThrow();
 
     try {
       const offerings = await purchases.getOfferings();
@@ -203,10 +232,7 @@ class RevenueCatServiceImpl implements RevenueCatService {
   }
 
   async restorePurchases(): Promise<RestoreResult> {
-    const purchases = getNativePurchasesModule();
-    if (!purchases) {
-      return { status: "failed", message: "Restore is unavailable on web builds." };
-    }
+    const purchases = getNativePurchasesModuleOrThrow();
 
     try {
       const info = await purchases.restorePurchases();

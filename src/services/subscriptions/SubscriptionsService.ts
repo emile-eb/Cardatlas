@@ -173,7 +173,7 @@ export interface SubscriptionsService {
 
 class SubscriptionsServiceImpl implements SubscriptionsService {
   async initializeBilling(appUserId: UUID): Promise<void> {
-    if (!revenueCatService.isAvailable()) return;
+    if (Platform.OS === "web") return;
     await revenueCatService.configure(appUserId);
   }
 
@@ -203,7 +203,7 @@ class SubscriptionsServiceImpl implements SubscriptionsService {
   }
 
   async refreshBillingState(userId: UUID): Promise<EntitlementState> {
-    if (revenueCatService.isAvailable()) {
+    if (Platform.OS !== "web") {
       await revenueCatService.configure(userId);
       const snapshot = await revenueCatService.getCustomerSnapshot();
       if (snapshot) {
@@ -214,11 +214,8 @@ class SubscriptionsServiceImpl implements SubscriptionsService {
   }
 
   async loadPaywall(userId: UUID): Promise<PaywallViewModel> {
-    if (!revenueCatService.isAvailable()) {
-      if (Platform.OS === "web") {
-        return getWebPreviewPaywall();
-      }
-      return { loading: false, unavailable: true, plans: [] };
+    if (Platform.OS === "web") {
+      return getWebPreviewPaywall();
     }
 
     await revenueCatService.configure(userId);
