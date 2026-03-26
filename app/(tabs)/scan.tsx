@@ -488,7 +488,7 @@ export default function ScanCameraTab() {
 
         <Text style={styles.liveGuideTitle}>{guidanceTitle}</Text>
         <Text style={styles.liveGuideSub}>
-          {currentSideCaptured ? `${sideLabel(activeSide)} captured` : "Align the card corners with the frame"}
+          {currentSideCaptured ? `${sideLabel(activeSide)} captured` : ""}
         </Text>
 
         <View style={styles.liveSideRow}>
