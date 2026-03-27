@@ -51,6 +51,17 @@ export default function PaywallScreen() {
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
+  const [debugDiagnostics, setDebugDiagnostics] = useState<{
+    loadStarted: boolean;
+    planCount: number;
+    productIds: string[];
+    packageIds: string[];
+    selectedPackageId: string | null;
+    unavailable: boolean;
+    errorMessage: string | null;
+    premium: boolean;
+    entryPoint: string;
+  } | null>(null);
 
   const pageEntrance = useRef(new Animated.Value(0)).current;
 
@@ -71,6 +82,17 @@ export default function PaywallScreen() {
   useEffect(() => {
     setLoading(true);
     setStatusText(null);
+    setDebugDiagnostics({
+      loadStarted: true,
+      planCount: 0,
+      productIds: [],
+      packageIds: [],
+      selectedPackageId: null,
+      unavailable: false,
+      errorMessage: null,
+      premium,
+      entryPoint
+    });
 
     loadPaywall()
       .then((model) => {
@@ -78,16 +100,39 @@ export default function PaywallScreen() {
         setPlans(ordered);
         const recommended = preferredPlan(ordered);
         setSelectedPackageId(recommended?.packageId ?? null);
+        setDebugDiagnostics({
+          loadStarted: true,
+          planCount: ordered.length,
+          productIds: ordered.map((plan) => plan.productId),
+          packageIds: ordered.map((plan) => plan.packageId),
+          selectedPackageId: recommended?.packageId ?? null,
+          unavailable: Boolean(model.unavailable),
+          errorMessage: null,
+          premium,
+          entryPoint
+        });
       })
       .catch((error) => {
         setPlans([]);
         setSelectedPackageId(null);
-        setStatusText(error instanceof Error ? error.message : "Unable to load plans right now.");
+        const message = error instanceof Error ? error.message : "Unable to load plans right now.";
+        setStatusText(message);
+        setDebugDiagnostics({
+          loadStarted: true,
+          planCount: 0,
+          productIds: [],
+          packageIds: [],
+          selectedPackageId: null,
+          unavailable: true,
+          errorMessage: message,
+          premium,
+          entryPoint
+        });
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [loadPaywall]);
+  }, [entryPoint, loadPaywall, premium]);
 
   useEffect(() => {
     if (!premium) return;
@@ -270,6 +315,29 @@ export default function PaywallScreen() {
                 tone="light"
                 showLegal={false}
               />
+
+              {debugDiagnostics ? (
+                <View style={styles.debugBlock}>
+                  <Text style={styles.debugTitle}>Paywall Diagnostics</Text>
+                  <Text style={styles.debugLine}>entry: {debugDiagnostics.entryPoint}</Text>
+                  <Text style={styles.debugLine}>premium: {debugDiagnostics.premium ? "yes" : "no"}</Text>
+                  <Text style={styles.debugLine}>loading: {loading ? "yes" : "no"}</Text>
+                  <Text style={styles.debugLine}>unavailable: {debugDiagnostics.unavailable ? "yes" : "no"}</Text>
+                  <Text style={styles.debugLine}>plans: {debugDiagnostics.planCount}</Text>
+                  <Text style={styles.debugLine}>
+                    selected: {selectedPackageId ?? debugDiagnostics.selectedPackageId ?? "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    products: {debugDiagnostics.productIds.length ? debugDiagnostics.productIds.join(", ") : "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    packages: {debugDiagnostics.packageIds.length ? debugDiagnostics.packageIds.join(", ") : "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    error: {debugDiagnostics.errorMessage ?? statusText ?? "none"}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           </View>
         </ScrollView>
@@ -338,5 +406,27 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.7,
     textAlign: "center"
+  },
+  debugBlock: {
+    marginTop: 18,
+    borderWidth: 1,
+    borderColor: "#E2E6EC",
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 3
+  },
+  debugTitle: {
+    ...typography.Caption,
+    color: "#5F6B7C",
+    fontFamily: "Inter-SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.4
+  },
+  debugLine: {
+    ...typography.Caption,
+    color: "#243041",
+    fontFamily: "Inter-Medium"
   }
 });
