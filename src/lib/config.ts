@@ -9,22 +9,57 @@ type AppConfig = {
   bundleIdentifier: string;
 };
 
-function readEnv(name: string): string | undefined {
-  const value = process.env[name]?.trim();
+function normalizeEnv(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized ? normalized : undefined;
+}
+
+function readSupabaseUrl(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  return normalizeEnv(value);
+}
+
+function readSupabaseAnonKey(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  return normalizeEnv(value);
+}
+
+function readExpoProjectId(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_EXPO_PROJECT_ID;
+  return normalizeEnv(value);
+}
+
+function readRevenueCatIosKey(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+  return normalizeEnv(value);
+}
+
+function readMetaAppId(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_META_APP_ID;
+  return normalizeEnv(value);
+}
+
+function readBundleIdentifier(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER;
+  return normalizeEnv(value);
+}
+
+function readMarketPulseProvider(): string | undefined {
+  const value = process.env.EXPO_PUBLIC_MARKET_PULSE_PROVIDER;
   return value ? value : undefined;
 }
 
 export function getAppConfig(): AppConfig {
   return {
     // Supabase runtime endpoints for auth/data/storage.
-    supabaseUrl: readEnv(ENV_KEYS.supabaseUrl),
-    supabaseAnonKey: readEnv(ENV_KEYS.supabaseAnonKey),
-    expoProjectId: readEnv(ENV_KEYS.expoProjectId),
+    supabaseUrl: readSupabaseUrl(),
+    supabaseAnonKey: readSupabaseAnonKey(),
+    expoProjectId: readExpoProjectId(),
     // RevenueCat iOS public SDK key (future subscription integration).
-    revenueCatIosKey: readEnv(ENV_KEYS.revenueCatIosKey),
+    revenueCatIosKey: readRevenueCatIosKey(),
     // Meta app id for event attribution (future integration).
-    metaAppId: readEnv(ENV_KEYS.metaAppId),
-    bundleIdentifier: readEnv(ENV_KEYS.bundleIdentifier) ?? "com.cardatlas.app"
+    metaAppId: readMetaAppId(),
+    bundleIdentifier: readBundleIdentifier() ?? "com.cardatlas.app"
   };
 }
 
