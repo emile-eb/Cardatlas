@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Linking, Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraCapturedPicture, FlashMode } from "expo-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/state/AppState";
-import { useAuth } from "@/features/auth";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { standardTopInset } from "@/theme/safeArea";
 import { pickImageFromDevice } from "@/utils/pickImage";
@@ -154,13 +152,6 @@ export default function ScanCameraTab() {
   const origin = typeof params.origin === "string" ? params.origin : null;
   const preferredSideParam: ScanSide = params.side === "back" ? "back" : "front";
   const isNativeCamera = Platform.OS !== "web";
-  const { session, status: authStatus, error: authError } = useAuth();
-  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
-  const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? "unknown";
-  const bundleIdentifier =
-    Constants.expoConfig?.ios?.bundleIdentifier ??
-    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ??
-    "unknown";
 
   const [activeSide, setActiveSide] = useState<ScanSide>(preferredSideParam);
   const [tipsOpen, setTipsOpen] = useState(false);
@@ -557,35 +548,6 @@ export default function ScanCameraTab() {
         <View style={styles.captureStatePill}>
           <Text style={styles.captureStateText}>{helperText}</Text>
         </View>
-
-        <View style={styles.debugBlock}>
-          <Text style={styles.debugTitle}>Camera Diagnostics</Text>
-          <Text style={styles.debugLine}>platform: {Platform.OS}</Text>
-          <Text style={styles.debugLine}>app version: {appVersion}</Text>
-          <Text style={styles.debugLine}>build: {buildNumber}</Text>
-          <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
-          <Text style={styles.debugLine}>auth status: {authStatus}</Text>
-          <Text style={styles.debugLine}>auth error: {authError ?? "none"}</Text>
-          <Text style={styles.debugLine}>app user id: {session?.appUserId ?? "none"}</Text>
-          <Text style={styles.debugLine}>auth user id: {session?.userId ?? "none"}</Text>
-          <Text style={styles.debugLine}>origin: {origin ?? "none"}</Text>
-          <Text style={styles.debugLine}>native camera path: {isNativeCamera ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>screen focused: {isFocused ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>should mount preview: {shouldMountCameraView ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>camera ready: {cameraReady ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>camera error: {cameraError ?? "none"}</Text>
-          <Text style={styles.debugLine}>permission status: {permission?.status ?? "unknown"}</Text>
-          <Text style={styles.debugLine}>permission granted: {permission?.granted ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>can ask again: {permission?.canAskAgain ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>active side: {activeSide}</Text>
-          <Text style={styles.debugLine}>front captured: {frontDone ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>back captured: {backDone ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>current side captured: {currentSideCaptured ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>capturing: {capturing ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>flash mode: {flashMode}</Text>
-          <Text style={styles.debugLine}>camera key: {String(cameraInstanceKey)}</Text>
-          <Text style={styles.debugLine}>picker message: {pickerMessage ?? "none"}</Text>
-        </View>
       </View>
 
       <View style={[styles.bottomTray, { paddingBottom: Math.max(insets.bottom + spacing.sm, 18) }]}>
@@ -796,29 +758,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: "rgba(255,255,255,0.08)"
-  },
-  debugBlock: {
-    width: "100%",
-    maxWidth: 310,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    backgroundColor: "rgba(0,0,0,0.28)",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 3
-  },
-  debugTitle: {
-    ...typography.Caption,
-    color: "rgba(255,255,255,0.72)",
-    fontFamily: "Inter-SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.4
-  },
-  debugLine: {
-    ...typography.Caption,
-    color: "#FFFFFF",
-    fontFamily: "Inter-Medium"
   },
   captureStateText: {
     ...typography.Caption,

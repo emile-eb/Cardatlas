@@ -1,4 +1,5 @@
 import { getRequiredSupabaseClient } from "@/lib/supabase/client";
+import { Platform } from "react-native";
 import type {
   FailedUploadCleanupRequest,
   ScanImageUploadRequest,
@@ -9,7 +10,34 @@ import type {
 const FRONT_BUCKET = "scan-fronts";
 const BACK_BUCKET = "scan-backs";
 
+function inferContentType(localUri: string): string | null {
+  const normalized = localUri.split("?")[0].toLowerCase();
+  if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) return "image/jpeg";
+  if (normalized.endsWith(".png")) return "image/png";
+  if (normalized.endsWith(".heic")) return "image/heic";
+  if (normalized.endsWith(".heif")) return "image/heif";
+  if (normalized.endsWith(".webp")) return "image/webp";
+  return null;
+}
+
 async function uriToBlob(localUri: string): Promise<Blob> {
+  if (Platform.OS !== "web") {
+    return new Promise<Blob>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.onerror = () => reject(new Error(`Failed to read image at uri: ${localUri}`));
+      xhr.onload = () => {
+        if (xhr.status >= 400) {
+          reject(new Error(`Failed to read image at uri: ${localUri}`));
+          return;
+        }
+        resolve(xhr.response as Blob);
+      };
+      xhr.responseType = "blob";
+      xhr.open("GET", localUri, true);
+      xhr.send();
+    });
+  }
+
   const response = await fetch(localUri);
   if (!response.ok) {
     throw new Error(`Failed to read image at uri: ${localUri}`);
@@ -59,7 +87,8 @@ class StorageServiceImpl implements StorageService {
     const path = buildScanPath(input, side);
     const bucket = bucketForSide(side);
     const blob = await uriToBlob(input.localUri);
-    const detectedContentType = input.contentType ?? blob.type ?? "application/octet-stream";
+    const detectedContentType =
+      input.contentType ?? blob.type ?? inferContentType(input.localUri) ?? "application/octet-stream";
 
     const { error } = await supabase.storage.from(bucket).upload(path, blob, {
       upsert: true,

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import Constants from "expo-constants";
 import { useFocusEffect } from "@react-navigation/native";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
@@ -108,7 +107,7 @@ export default function HomeTab() {
   const scrollRef = useRef<ScrollView>(null);
   const { history, enterAiOrPaywall, consumeSessionPaywallTrigger, presentPaywall, startScanOrPaywall } = useAppState();
   const { preferences } = useAppPreferences();
-  const { session, status: authStatus, error: authError } = useAuth();
+  const { session } = useAuth();
   const homeDashboard = useHomeDashboard();
   const totalValue = homeDashboard.portfolioValue;
   const recentScans = history.filter((item) => Boolean(item.imageFront?.trim())).slice(0, 8);
@@ -122,13 +121,6 @@ export default function HomeTab() {
   const [marketPulseDidTriggerBackgroundRefresh, setMarketPulseDidTriggerBackgroundRefresh] = useState(false);
   const [marketPulseRefreshedAt, setMarketPulseRefreshedAt] = useState<string | null>(null);
   const hasTrackedPulseView = useRef(false);
-  const marketPulseProviderEnv = String(process.env.EXPO_PUBLIC_MARKET_PULSE_PROVIDER ?? "unset");
-  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
-  const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? "unknown";
-  const bundleIdentifier =
-    Constants.expoConfig?.ios?.bundleIdentifier ??
-    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ??
-    "unknown";
 
   useFocusEffect(
     useCallback(() => {
@@ -352,33 +344,6 @@ export default function HomeTab() {
           </ScrollView>
         )}
 
-        <View style={styles.debugBlock}>
-          <Text style={styles.debugTitle}>Market Pulse Diagnostics</Text>
-          <Text style={styles.debugLine}>provider env: {marketPulseProviderEnv}</Text>
-          <Text style={styles.debugLine}>platform: {Platform.OS}</Text>
-          <Text style={styles.debugLine}>app version: {appVersion}</Text>
-          <Text style={styles.debugLine}>build: {buildNumber}</Text>
-          <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
-          <Text style={styles.debugLine}>auth status: {authStatus}</Text>
-          <Text style={styles.debugLine}>auth error: {authError ?? "none"}</Text>
-          <Text style={styles.debugLine}>session app user: {session?.appUserId ?? "none"}</Text>
-          <Text style={styles.debugLine}>session auth user: {session?.userId ?? "none"}</Text>
-          <Text style={styles.debugLine}>loading: {marketPulseLoading ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>source: {marketPulseSource}</Text>
-          <Text style={styles.debugLine}>is mock: {marketPulseIsMock ? "yes" : "no"}</Text>
-          <Text style={styles.debugLine}>item count: {marketPulse.length}</Text>
-          <Text style={styles.debugLine}>
-            bg refresh requested: {marketPulseDidTriggerBackgroundRefresh ? "yes" : "no"}
-          </Text>
-          <Text style={styles.debugLine}>refreshed at: {marketPulseRefreshedAt ?? "none"}</Text>
-          <Text style={styles.debugLine}>
-            first item source: {marketPulse[0]?.source ?? "none"}
-          </Text>
-          <Text style={styles.debugLine}>
-            first item title: {marketPulse[0]?.title ?? "none"}
-          </Text>
-          <Text style={styles.debugLine}>error: {marketPulseError ?? "none"}</Text>
-        </View>
       </View>
 
       <View style={styles.recentSection}>
@@ -670,28 +635,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     padding: 8,
     gap: 6
-  },
-  debugBlock: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#E2E6EC",
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 3
-  },
-  debugTitle: {
-    ...typography.Caption,
-    color: "#5F6B7C",
-    fontFamily: "Inter-SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.4
-  },
-  debugLine: {
-    ...typography.Caption,
-    color: "#243041",
-    fontFamily: "Inter-Medium"
   },
   marketPulseImageWrap: {
     position: "relative",

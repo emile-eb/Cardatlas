@@ -10,12 +10,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingPaywallFlow } from "@/components/paywall/OnboardingPaywallFlow";
 import { OnboardingPaywallPlanSelector } from "@/components/paywall/onboarding/OnboardingPaywallPlanSelector";
 import { useAppState } from "@/state/AppState";
-import { useAuth } from "@/features/auth";
 import { PaywallFooterLinks } from "@/components/paywall/PaywallFooterLinks";
 import {
   analyticsLabelForPaywallEntryPoint,
@@ -28,7 +26,6 @@ import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import { standardTopInset } from "@/theme/safeArea";
 import { layout, shadows, typography } from "@/theme/tokens";
 import { orderPlans } from "@/components/paywall/PaywallPlanSelector";
-import { revenueCatService } from "@/services/subscriptions/RevenueCatService";
 
 function preferredPlan(plans: PaywallPlanViewModel[]): PaywallPlanViewModel | null {
   return plans.find((plan) => plan.isRecommended) ?? plans[0] ?? null;
@@ -44,7 +41,6 @@ export default function PaywallScreen() {
     restoreBilling,
     premium
   } = useAppState();
-  const { session, status: authStatus, error: authError } = useAuth();
 
   const entryPoint = resolvePaywallEntryPoint(params.source);
   const variantKey = resolvePaywallVariant(params.source);
@@ -55,44 +51,6 @@ export default function PaywallScreen() {
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
-  const [debugDiagnostics, setDebugDiagnostics] = useState<{
-    loadStarted: boolean;
-    planCount: number;
-    productIds: string[];
-    packageIds: string[];
-    selectedPackageId: string | null;
-    unavailable: boolean;
-    errorMessage: string | null;
-    premium: boolean;
-    entryPoint: string;
-    hasCurrentOffering: boolean;
-    offeringId: string | null;
-    serverDescription: string | null;
-    rawPackageCount: number;
-    rawPackageIds: string[];
-    rawProductIds: string[];
-    filteredPackageCount: number;
-    revenueCatKeySource: string | null;
-    revenueCatKeySuffix: string | null;
-    loadErrorMessage: string | null;
-  } | null>(null);
-
-  const revenueCatApiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? null;
-  const revenueCatIosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? null;
-  const revenueCatKey = revenueCatApiKey || revenueCatIosKey;
-  const revenueCatKeySource = revenueCatApiKey
-    ? "EXPO_PUBLIC_REVENUECAT_API_KEY"
-    : revenueCatIosKey
-      ? "EXPO_PUBLIC_REVENUECAT_IOS_KEY"
-      : null;
-  const revenueCatKeySuffix = revenueCatKey ? revenueCatKey.slice(-6) : null;
-  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
-  const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? "unknown";
-  const bundleIdentifier =
-    Constants.expoConfig?.ios?.bundleIdentifier ??
-    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ??
-    "unknown";
-  const revenueCatAvailable = revenueCatService.isAvailable();
 
   const pageEntrance = useRef(new Animated.Value(0)).current;
 
@@ -113,27 +71,6 @@ export default function PaywallScreen() {
   useEffect(() => {
     setLoading(true);
     setStatusText(null);
-    setDebugDiagnostics({
-      loadStarted: true,
-      planCount: 0,
-      productIds: [],
-      packageIds: [],
-      selectedPackageId: null,
-      unavailable: false,
-      errorMessage: null,
-      premium,
-      entryPoint,
-      hasCurrentOffering: false,
-      offeringId: null,
-      serverDescription: null,
-      rawPackageCount: 0,
-      rawPackageIds: [],
-      rawProductIds: [],
-      filteredPackageCount: 0,
-      revenueCatKeySource,
-      revenueCatKeySuffix,
-      loadErrorMessage: null
-    });
 
     loadPaywall()
       .then((model) => {
@@ -141,59 +78,17 @@ export default function PaywallScreen() {
         setPlans(ordered);
         const recommended = preferredPlan(ordered);
         setSelectedPackageId(recommended?.packageId ?? null);
-        setDebugDiagnostics({
-          loadStarted: true,
-          planCount: ordered.length,
-          productIds: ordered.map((plan) => plan.productId),
-          packageIds: ordered.map((plan) => plan.packageId),
-          selectedPackageId: recommended?.packageId ?? null,
-          unavailable: Boolean(model.unavailable),
-          errorMessage: null,
-          premium,
-          entryPoint,
-          hasCurrentOffering: Boolean(model.diagnostics?.hasCurrentOffering),
-          offeringId: model.diagnostics?.offeringId ?? null,
-          serverDescription: model.diagnostics?.serverDescription ?? null,
-          rawPackageCount: model.diagnostics?.rawPackageCount ?? 0,
-          rawPackageIds: model.diagnostics?.rawPackageIds ?? [],
-          rawProductIds: model.diagnostics?.rawProductIds ?? [],
-          filteredPackageCount: model.diagnostics?.filteredPackageCount ?? ordered.length,
-          revenueCatKeySource,
-          revenueCatKeySuffix,
-          loadErrorMessage: model.diagnostics?.loadErrorMessage ?? null
-        });
       })
       .catch((error) => {
         setPlans([]);
         setSelectedPackageId(null);
         const message = error instanceof Error ? error.message : "Unable to load plans right now.";
         setStatusText(message);
-        setDebugDiagnostics({
-          loadStarted: true,
-          planCount: 0,
-          productIds: [],
-          packageIds: [],
-          selectedPackageId: null,
-          unavailable: true,
-          errorMessage: message,
-          premium,
-          entryPoint,
-          hasCurrentOffering: false,
-          offeringId: null,
-          serverDescription: null,
-          rawPackageCount: 0,
-          rawPackageIds: [],
-          rawProductIds: [],
-          filteredPackageCount: 0,
-          revenueCatKeySource,
-          revenueCatKeySuffix,
-          loadErrorMessage: message
-        });
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [entryPoint, loadPaywall, premium, revenueCatKeySource, revenueCatKeySuffix]);
+  }, [entryPoint, loadPaywall]);
 
   useEffect(() => {
     if (!premium) return;
@@ -376,62 +271,6 @@ export default function PaywallScreen() {
                 tone="light"
                 showLegal={false}
               />
-
-              {debugDiagnostics ? (
-                <View style={styles.debugBlock}>
-                  <Text style={styles.debugTitle}>Paywall Diagnostics</Text>
-                  <Text style={styles.debugLine}>entry: {debugDiagnostics.entryPoint}</Text>
-                  <Text style={styles.debugLine}>platform: {Constants.platform?.ios ? "ios" : "native"}</Text>
-                  <Text style={styles.debugLine}>app version: {appVersion}</Text>
-                  <Text style={styles.debugLine}>build: {buildNumber}</Text>
-                  <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
-                  <Text style={styles.debugLine}>auth status: {authStatus}</Text>
-                  <Text style={styles.debugLine}>auth error: {authError ?? "none"}</Text>
-                  <Text style={styles.debugLine}>app user id: {session?.appUserId ?? "none"}</Text>
-                  <Text style={styles.debugLine}>auth user id: {session?.userId ?? "none"}</Text>
-                  <Text style={styles.debugLine}>premium: {debugDiagnostics.premium ? "yes" : "no"}</Text>
-                  <Text style={styles.debugLine}>loading: {loading ? "yes" : "no"}</Text>
-                  <Text style={styles.debugLine}>unavailable: {debugDiagnostics.unavailable ? "yes" : "no"}</Text>
-                  <Text style={styles.debugLine}>rc native module: {revenueCatAvailable ? "yes" : "no"}</Text>
-                  <Text style={styles.debugLine}>
-                    current offering: {debugDiagnostics.hasCurrentOffering ? "yes" : "no"}
-                  </Text>
-                  <Text style={styles.debugLine}>offering id: {debugDiagnostics.offeringId ?? "none"}</Text>
-                  <Text style={styles.debugLine}>
-                    server desc: {debugDiagnostics.serverDescription ?? "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>plans: {debugDiagnostics.planCount}</Text>
-                  <Text style={styles.debugLine}>raw packages: {debugDiagnostics.rawPackageCount}</Text>
-                  <Text style={styles.debugLine}>filtered packages: {debugDiagnostics.filteredPackageCount}</Text>
-                  <Text style={styles.debugLine}>
-                    selected: {selectedPackageId ?? debugDiagnostics.selectedPackageId ?? "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    raw products: {debugDiagnostics.rawProductIds.length ? debugDiagnostics.rawProductIds.join(", ") : "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    raw package ids: {debugDiagnostics.rawPackageIds.length ? debugDiagnostics.rawPackageIds.join(", ") : "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    rc key source: {debugDiagnostics.revenueCatKeySource ?? "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    rc key suffix: {debugDiagnostics.revenueCatKeySuffix ?? "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    products: {debugDiagnostics.productIds.length ? debugDiagnostics.productIds.join(", ") : "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    packages: {debugDiagnostics.packageIds.length ? debugDiagnostics.packageIds.join(", ") : "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    error: {debugDiagnostics.errorMessage ?? statusText ?? "none"}
-                  </Text>
-                  <Text style={styles.debugLine}>
-                    load error: {debugDiagnostics.loadErrorMessage ?? "none"}
-                  </Text>
-                </View>
-              ) : null}
             </View>
           </View>
         </ScrollView>
@@ -500,27 +339,5 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.7,
     textAlign: "center"
-  },
-  debugBlock: {
-    marginTop: 18,
-    borderWidth: 1,
-    borderColor: "#E2E6EC",
-    borderRadius: 12,
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 3
-  },
-  debugTitle: {
-    ...typography.Caption,
-    color: "#5F6B7C",
-    fontFamily: "Inter-SemiBold",
-    textTransform: "uppercase",
-    letterSpacing: 0.4
-  },
-  debugLine: {
-    ...typography.Caption,
-    color: "#243041",
-    fontFamily: "Inter-Medium"
   }
 });

@@ -35,6 +35,8 @@ function formatScanError(message?: string | null, fallback = "We couldn’t fini
   if (!normalized) return fallback;
   if (/session/i.test(normalized)) return "Your session expired before analysis finished. Please try again.";
   if (/front and back/i.test(normalized)) return "Capture both sides of the card before starting analysis.";
+  if (/failed to read image at uri/i.test(normalized)) return "We couldn’t read one of the photos on this device. Please retake or reselect it.";
+  if (/storage upload failed/i.test(normalized)) return "We couldn’t upload your card photos. Please try again.";
   if (/upload/i.test(normalized)) return "We couldn’t upload your card photos. Please try again.";
   if (/poll/i.test(normalized) || /timeout/i.test(normalized)) return "Analysis is taking longer than expected. Please try again.";
   return normalized;
