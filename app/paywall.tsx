@@ -68,7 +68,19 @@ export default function PaywallScreen() {
     rawPackageIds: string[];
     rawProductIds: string[];
     filteredPackageCount: number;
+    revenueCatKeySource: string | null;
+    revenueCatKeySuffix: string | null;
   } | null>(null);
+
+  const revenueCatApiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? null;
+  const revenueCatIosKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY ?? null;
+  const revenueCatKey = revenueCatApiKey || revenueCatIosKey;
+  const revenueCatKeySource = revenueCatApiKey
+    ? "EXPO_PUBLIC_REVENUECAT_API_KEY"
+    : revenueCatIosKey
+      ? "EXPO_PUBLIC_REVENUECAT_IOS_KEY"
+      : null;
+  const revenueCatKeySuffix = revenueCatKey ? revenueCatKey.slice(-6) : null;
 
   const pageEntrance = useRef(new Animated.Value(0)).current;
 
@@ -105,7 +117,9 @@ export default function PaywallScreen() {
       rawPackageCount: 0,
       rawPackageIds: [],
       rawProductIds: [],
-      filteredPackageCount: 0
+      filteredPackageCount: 0,
+      revenueCatKeySource,
+      revenueCatKeySuffix
     });
 
     loadPaywall()
@@ -130,7 +144,9 @@ export default function PaywallScreen() {
           rawPackageCount: model.diagnostics?.rawPackageCount ?? 0,
           rawPackageIds: model.diagnostics?.rawPackageIds ?? [],
           rawProductIds: model.diagnostics?.rawProductIds ?? [],
-          filteredPackageCount: model.diagnostics?.filteredPackageCount ?? ordered.length
+          filteredPackageCount: model.diagnostics?.filteredPackageCount ?? ordered.length,
+          revenueCatKeySource,
+          revenueCatKeySuffix
         });
       })
       .catch((error) => {
@@ -154,13 +170,15 @@ export default function PaywallScreen() {
           rawPackageCount: 0,
           rawPackageIds: [],
           rawProductIds: [],
-          filteredPackageCount: 0
+          filteredPackageCount: 0,
+          revenueCatKeySource,
+          revenueCatKeySuffix
         });
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [entryPoint, loadPaywall, premium]);
+  }, [entryPoint, loadPaywall, premium, revenueCatKeySource, revenueCatKeySuffix]);
 
   useEffect(() => {
     if (!premium) return;
@@ -369,6 +387,12 @@ export default function PaywallScreen() {
                   </Text>
                   <Text style={styles.debugLine}>
                     raw package ids: {debugDiagnostics.rawPackageIds.length ? debugDiagnostics.rawPackageIds.join(", ") : "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    rc key source: {debugDiagnostics.revenueCatKeySource ?? "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    rc key suffix: {debugDiagnostics.revenueCatKeySuffix ?? "none"}
                   </Text>
                   <Text style={styles.debugLine}>
                     products: {debugDiagnostics.productIds.length ? debugDiagnostics.productIds.join(", ") : "none"}

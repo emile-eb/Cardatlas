@@ -48,7 +48,7 @@ const config = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: "19"
+    buildNumber: "20"
   },
   android: {
     package: bundleIdentifier
