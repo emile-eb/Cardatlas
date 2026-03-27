@@ -199,7 +199,9 @@ export default function ScanCameraTab() {
     if (pickerMessage) return pickerMessage;
     if (ready) return "Captured. Preparing analysis…";
     if (currentSideCaptured) return `${sideLabel(activeSide)} captured. You can retake it or continue to the next side.`;
-    return isNativeCamera ? "Align the card corners with the frame and capture both sides." : "Use camera capture or upload a card photo to continue.";
+    return isNativeCamera
+      ? "Align the card corners with the frame, or choose a photo from your library."
+      : "Use camera capture or upload a card photo to continue.";
   }, [activeSide, currentSideCaptured, isNativeCamera, pickerMessage, ready]);
 
   const clearPendingHandoff = () => {
@@ -372,7 +374,18 @@ export default function ScanCameraTab() {
     try {
       setCapturing(true);
       setPickerMessage(null);
-      const result = (await cameraRef.current.takePicture({
+      const capture =
+        typeof cameraRef.current.takePictureAsync === "function"
+          ? cameraRef.current.takePictureAsync.bind(cameraRef.current)
+          : typeof cameraRef.current.takePicture === "function"
+            ? cameraRef.current.takePicture.bind(cameraRef.current)
+            : null;
+
+      if (!capture) {
+        throw new Error("Camera capture method is unavailable.");
+      }
+
+      const result = (await capture({
         quality: 0.82,
         skipProcessing: false,
         shutterSound: false
@@ -405,7 +418,7 @@ export default function ScanCameraTab() {
     setPickerMessage(null);
     const uri = await pickImageFromDevice({ preferCamera });
     if (!uri) {
-      setPickerMessage("No image selected.");
+      setPickerMessage(preferCamera ? "No photo captured." : "No image selected.");
       return;
     }
     applyCapturedPhoto(activeSide, uri);
@@ -585,15 +598,11 @@ export default function ScanCameraTab() {
           <Pressable
             style={[styles.secondaryTrayBtn, isNativeCamera && styles.secondaryTrayBtnMuted]}
             onPress={() => {
-              if (isNativeCamera) return;
               void pickFallbackImage(false);
             }}
-            disabled={isNativeCamera}
           >
-            <Ionicons name="images-outline" size={18} color={isNativeCamera ? "#A1A9B8" : colors.textPrimary} />
-            <Text style={[styles.secondaryTrayText, isNativeCamera && styles.secondaryTrayTextMuted]}>
-              {isNativeCamera ? "Native Camera" : "Upload"}
-            </Text>
+            <Ionicons name="images-outline" size={18} color={colors.textPrimary} />
+            <Text style={styles.secondaryTrayText}>{isNativeCamera ? "Library" : "Upload"}</Text>
           </Pressable>
         )}
 

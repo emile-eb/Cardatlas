@@ -6,8 +6,44 @@ export interface PickImageOptions {
 
 export async function pickImageFromDevice(options: PickImageOptions = {}): Promise<string | null> {
   if (Platform.OS !== "web") {
-    // Native picker integration can be swapped to expo-image-picker later.
-    return null;
+    const ImagePicker = await import("expo-image-picker");
+
+    if (options.preferCamera) {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        return null;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        cameraType: ImagePicker.CameraType.back,
+        mediaTypes: ["images"],
+        allowsEditing: false,
+        quality: 0.92
+      });
+
+      if (result.canceled) {
+        return null;
+      }
+
+      return result.assets[0]?.uri ?? null;
+    }
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      return null;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.92
+    });
+
+    if (result.canceled) {
+      return null;
+    }
+
+    return result.assets[0]?.uri ?? null;
   }
 
   return new Promise((resolve) => {

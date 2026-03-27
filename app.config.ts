@@ -5,7 +5,7 @@ const expoProjectId =
   process.env.EXPO_PUBLIC_EXPO_PROJECT_ID ??
   "784382dd-1eb7-4598-b5ff-4b3315fd14c8";
 
-const plugins = [
+const plugins: any[] = [
   "expo-router",
   "expo-notifications",
   [
@@ -14,6 +14,14 @@ const plugins = [
       cameraPermission: "Allow CardAtlas to scan the front and back of your cards.",
       microphonePermission: false,
       recordAudioAndroid: false
+    }
+  ],
+  [
+    "expo-image-picker",
+    {
+      photosPermission: "Allow CardAtlas to use photos of your cards from your library.",
+      cameraPermission: "Allow CardAtlas to take photos of your cards.",
+      microphonePermission: false
     }
   ]
 ];
@@ -48,7 +56,7 @@ const config = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: "25"
+    buildNumber: "26"
   },
   android: {
     package: bundleIdentifier
