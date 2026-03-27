@@ -108,7 +108,7 @@ export default function HomeTab() {
   const scrollRef = useRef<ScrollView>(null);
   const { history, enterAiOrPaywall, consumeSessionPaywallTrigger, presentPaywall, startScanOrPaywall } = useAppState();
   const { preferences } = useAppPreferences();
-  const { session } = useAuth();
+  const { session, status: authStatus, error: authError } = useAuth();
   const homeDashboard = useHomeDashboard();
   const totalValue = homeDashboard.portfolioValue;
   const recentScans = history.filter((item) => Boolean(item.imageFront?.trim())).slice(0, 8);
@@ -359,7 +359,10 @@ export default function HomeTab() {
           <Text style={styles.debugLine}>app version: {appVersion}</Text>
           <Text style={styles.debugLine}>build: {buildNumber}</Text>
           <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
+          <Text style={styles.debugLine}>auth status: {authStatus}</Text>
+          <Text style={styles.debugLine}>auth error: {authError ?? "none"}</Text>
           <Text style={styles.debugLine}>session app user: {session?.appUserId ?? "none"}</Text>
+          <Text style={styles.debugLine}>session auth user: {session?.userId ?? "none"}</Text>
           <Text style={styles.debugLine}>loading: {marketPulseLoading ? "yes" : "no"}</Text>
           <Text style={styles.debugLine}>source: {marketPulseSource}</Text>
           <Text style={styles.debugLine}>is mock: {marketPulseIsMock ? "yes" : "no"}</Text>

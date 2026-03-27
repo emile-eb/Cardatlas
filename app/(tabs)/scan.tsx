@@ -8,6 +8,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import type { CameraCapturedPicture, FlashMode } from "expo-camera";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/state/AppState";
+import { useAuth } from "@/features/auth";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { standardTopInset } from "@/theme/safeArea";
 import { pickImageFromDevice } from "@/utils/pickImage";
@@ -153,6 +154,7 @@ export default function ScanCameraTab() {
   const origin = typeof params.origin === "string" ? params.origin : null;
   const preferredSideParam: ScanSide = params.side === "back" ? "back" : "front";
   const isNativeCamera = Platform.OS !== "web";
+  const { session, status: authStatus, error: authError } = useAuth();
   const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
   const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? "unknown";
   const bundleIdentifier =
@@ -549,6 +551,10 @@ export default function ScanCameraTab() {
           <Text style={styles.debugLine}>app version: {appVersion}</Text>
           <Text style={styles.debugLine}>build: {buildNumber}</Text>
           <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
+          <Text style={styles.debugLine}>auth status: {authStatus}</Text>
+          <Text style={styles.debugLine}>auth error: {authError ?? "none"}</Text>
+          <Text style={styles.debugLine}>app user id: {session?.appUserId ?? "none"}</Text>
+          <Text style={styles.debugLine}>auth user id: {session?.userId ?? "none"}</Text>
           <Text style={styles.debugLine}>origin: {origin ?? "none"}</Text>
           <Text style={styles.debugLine}>native camera path: {isNativeCamera ? "yes" : "no"}</Text>
           <Text style={styles.debugLine}>screen focused: {isFocused ? "yes" : "no"}</Text>

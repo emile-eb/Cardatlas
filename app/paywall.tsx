@@ -44,7 +44,7 @@ export default function PaywallScreen() {
     restoreBilling,
     premium
   } = useAppState();
-  const { session } = useAuth();
+  const { session, status: authStatus, error: authError } = useAuth();
 
   const entryPoint = resolvePaywallEntryPoint(params.source);
   const variantKey = resolvePaywallVariant(params.source);
@@ -385,7 +385,10 @@ export default function PaywallScreen() {
                   <Text style={styles.debugLine}>app version: {appVersion}</Text>
                   <Text style={styles.debugLine}>build: {buildNumber}</Text>
                   <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
+                  <Text style={styles.debugLine}>auth status: {authStatus}</Text>
+                  <Text style={styles.debugLine}>auth error: {authError ?? "none"}</Text>
                   <Text style={styles.debugLine}>app user id: {session?.appUserId ?? "none"}</Text>
+                  <Text style={styles.debugLine}>auth user id: {session?.userId ?? "none"}</Text>
                   <Text style={styles.debugLine}>premium: {debugDiagnostics.premium ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>loading: {loading ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>unavailable: {debugDiagnostics.unavailable ? "yes" : "no"}</Text>
