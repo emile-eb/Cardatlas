@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
+import Constants from "expo-constants";
 import { useFocusEffect } from "@react-navigation/native";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { SecondaryButton } from "@/components/SecondaryButton";
@@ -118,7 +119,16 @@ export default function HomeTab() {
   const [marketPulseError, setMarketPulseError] = useState<string | null>(null);
   const [marketPulseIsMock, setMarketPulseIsMock] = useState(false);
   const [marketPulseSource, setMarketPulseSource] = useState<"mock" | "ebay">("mock");
+  const [marketPulseDidTriggerBackgroundRefresh, setMarketPulseDidTriggerBackgroundRefresh] = useState(false);
+  const [marketPulseRefreshedAt, setMarketPulseRefreshedAt] = useState<string | null>(null);
   const hasTrackedPulseView = useRef(false);
+  const marketPulseProviderEnv = String(process.env.EXPO_PUBLIC_MARKET_PULSE_PROVIDER ?? "unset");
+  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
+  const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? "unknown";
+  const bundleIdentifier =
+    Constants.expoConfig?.ios?.bundleIdentifier ??
+    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ??
+    "unknown";
 
   useFocusEffect(
     useCallback(() => {
@@ -142,6 +152,8 @@ export default function HomeTab() {
         setMarketPulseIsMock(feed.isMock);
         setMarketPulseSource(feed.source);
         setMarketPulseError(feed.errorMessage ?? null);
+        setMarketPulseDidTriggerBackgroundRefresh(Boolean(feed.didTriggerBackgroundRefresh));
+        setMarketPulseRefreshedAt(feed.refreshedAt ?? null);
 
         if (feed.didTriggerBackgroundRefresh) {
           setTimeout(() => {
@@ -150,12 +162,16 @@ export default function HomeTab() {
               setMarketPulse(next.items);
               setMarketPulseIsMock(next.isMock);
               setMarketPulseSource(next.source);
+              setMarketPulseError(next.errorMessage ?? null);
+              setMarketPulseDidTriggerBackgroundRefresh(Boolean(next.didTriggerBackgroundRefresh));
+              setMarketPulseRefreshedAt(next.refreshedAt ?? null);
             });
           }, 900);
         }
       } catch (error) {
         if (!active) return;
         setMarketPulseError(error instanceof Error ? error.message : "Unable to load Market Pulse");
+        setMarketPulseDidTriggerBackgroundRefresh(false);
       } finally {
         if (active) setMarketPulseLoading(false);
       }
@@ -167,6 +183,8 @@ export default function HomeTab() {
       setMarketPulse([]);
       setMarketPulseLoading(false);
       setMarketPulseError(null);
+      setMarketPulseDidTriggerBackgroundRefresh(false);
+      setMarketPulseRefreshedAt(null);
     }
 
     return () => {
@@ -333,6 +351,31 @@ export default function HomeTab() {
             ))}
           </ScrollView>
         )}
+
+        <View style={styles.debugBlock}>
+          <Text style={styles.debugTitle}>Market Pulse Diagnostics</Text>
+          <Text style={styles.debugLine}>provider env: {marketPulseProviderEnv}</Text>
+          <Text style={styles.debugLine}>platform: {Platform.OS}</Text>
+          <Text style={styles.debugLine}>app version: {appVersion}</Text>
+          <Text style={styles.debugLine}>build: {buildNumber}</Text>
+          <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
+          <Text style={styles.debugLine}>session app user: {session?.appUserId ?? "none"}</Text>
+          <Text style={styles.debugLine}>loading: {marketPulseLoading ? "yes" : "no"}</Text>
+          <Text style={styles.debugLine}>source: {marketPulseSource}</Text>
+          <Text style={styles.debugLine}>is mock: {marketPulseIsMock ? "yes" : "no"}</Text>
+          <Text style={styles.debugLine}>item count: {marketPulse.length}</Text>
+          <Text style={styles.debugLine}>
+            bg refresh requested: {marketPulseDidTriggerBackgroundRefresh ? "yes" : "no"}
+          </Text>
+          <Text style={styles.debugLine}>refreshed at: {marketPulseRefreshedAt ?? "none"}</Text>
+          <Text style={styles.debugLine}>
+            first item source: {marketPulse[0]?.source ?? "none"}
+          </Text>
+          <Text style={styles.debugLine}>
+            first item title: {marketPulse[0]?.title ?? "none"}
+          </Text>
+          <Text style={styles.debugLine}>error: {marketPulseError ?? "none"}</Text>
+        </View>
       </View>
 
       <View style={styles.recentSection}>
@@ -624,6 +667,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     padding: 8,
     gap: 6
+  },
+  debugBlock: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E2E6EC",
+    borderRadius: 12,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 3
+  },
+  debugTitle: {
+    ...typography.Caption,
+    color: "#5F6B7C",
+    fontFamily: "Inter-SemiBold",
+    textTransform: "uppercase",
+    letterSpacing: 0.4
+  },
+  debugLine: {
+    ...typography.Caption,
+    color: "#243041",
+    fontFamily: "Inter-Medium"
   },
   marketPulseImageWrap: {
     position: "relative",

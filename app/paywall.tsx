@@ -10,10 +10,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingPaywallFlow } from "@/components/paywall/OnboardingPaywallFlow";
 import { OnboardingPaywallPlanSelector } from "@/components/paywall/onboarding/OnboardingPaywallPlanSelector";
 import { useAppState } from "@/state/AppState";
+import { useAuth } from "@/features/auth";
 import { PaywallFooterLinks } from "@/components/paywall/PaywallFooterLinks";
 import {
   analyticsLabelForPaywallEntryPoint,
@@ -26,6 +28,7 @@ import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import { standardTopInset } from "@/theme/safeArea";
 import { layout, shadows, typography } from "@/theme/tokens";
 import { orderPlans } from "@/components/paywall/PaywallPlanSelector";
+import { revenueCatService } from "@/services/subscriptions/RevenueCatService";
 
 function preferredPlan(plans: PaywallPlanViewModel[]): PaywallPlanViewModel | null {
   return plans.find((plan) => plan.isRecommended) ?? plans[0] ?? null;
@@ -41,6 +44,7 @@ export default function PaywallScreen() {
     restoreBilling,
     premium
   } = useAppState();
+  const { session } = useAuth();
 
   const entryPoint = resolvePaywallEntryPoint(params.source);
   const variantKey = resolvePaywallVariant(params.source);
@@ -70,6 +74,7 @@ export default function PaywallScreen() {
     filteredPackageCount: number;
     revenueCatKeySource: string | null;
     revenueCatKeySuffix: string | null;
+    loadErrorMessage: string | null;
   } | null>(null);
 
   const revenueCatApiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY ?? null;
@@ -81,6 +86,13 @@ export default function PaywallScreen() {
       ? "EXPO_PUBLIC_REVENUECAT_IOS_KEY"
       : null;
   const revenueCatKeySuffix = revenueCatKey ? revenueCatKey.slice(-6) : null;
+  const appVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? "unknown";
+  const buildNumber = Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? "unknown";
+  const bundleIdentifier =
+    Constants.expoConfig?.ios?.bundleIdentifier ??
+    process.env.EXPO_PUBLIC_BUNDLE_IDENTIFIER ??
+    "unknown";
+  const revenueCatAvailable = revenueCatService.isAvailable();
 
   const pageEntrance = useRef(new Animated.Value(0)).current;
 
@@ -119,7 +131,8 @@ export default function PaywallScreen() {
       rawProductIds: [],
       filteredPackageCount: 0,
       revenueCatKeySource,
-      revenueCatKeySuffix
+      revenueCatKeySuffix,
+      loadErrorMessage: null
     });
 
     loadPaywall()
@@ -146,7 +159,8 @@ export default function PaywallScreen() {
           rawProductIds: model.diagnostics?.rawProductIds ?? [],
           filteredPackageCount: model.diagnostics?.filteredPackageCount ?? ordered.length,
           revenueCatKeySource,
-          revenueCatKeySuffix
+          revenueCatKeySuffix,
+          loadErrorMessage: model.diagnostics?.loadErrorMessage ?? null
         });
       })
       .catch((error) => {
@@ -172,7 +186,8 @@ export default function PaywallScreen() {
           rawProductIds: [],
           filteredPackageCount: 0,
           revenueCatKeySource,
-          revenueCatKeySuffix
+          revenueCatKeySuffix,
+          loadErrorMessage: message
         });
       })
       .finally(() => {
@@ -366,9 +381,15 @@ export default function PaywallScreen() {
                 <View style={styles.debugBlock}>
                   <Text style={styles.debugTitle}>Paywall Diagnostics</Text>
                   <Text style={styles.debugLine}>entry: {debugDiagnostics.entryPoint}</Text>
+                  <Text style={styles.debugLine}>platform: {Constants.platform?.ios ? "ios" : "native"}</Text>
+                  <Text style={styles.debugLine}>app version: {appVersion}</Text>
+                  <Text style={styles.debugLine}>build: {buildNumber}</Text>
+                  <Text style={styles.debugLine}>bundle id: {bundleIdentifier}</Text>
+                  <Text style={styles.debugLine}>app user id: {session?.appUserId ?? "none"}</Text>
                   <Text style={styles.debugLine}>premium: {debugDiagnostics.premium ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>loading: {loading ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>unavailable: {debugDiagnostics.unavailable ? "yes" : "no"}</Text>
+                  <Text style={styles.debugLine}>rc native module: {revenueCatAvailable ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>
                     current offering: {debugDiagnostics.hasCurrentOffering ? "yes" : "no"}
                   </Text>
@@ -402,6 +423,9 @@ export default function PaywallScreen() {
                   </Text>
                   <Text style={styles.debugLine}>
                     error: {debugDiagnostics.errorMessage ?? statusText ?? "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    load error: {debugDiagnostics.loadErrorMessage ?? "none"}
                   </Text>
                 </View>
               ) : null}

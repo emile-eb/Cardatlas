@@ -72,6 +72,16 @@ export interface PaywallViewModel {
   loading: boolean;
   unavailable: boolean;
   plans: PaywallPlanViewModel[];
+  diagnostics?: {
+    hasCurrentOffering: boolean;
+    offeringId: string | null;
+    serverDescription: string | null;
+    rawPackageCount: number;
+    rawPackageIds: string[];
+    rawProductIds: string[];
+    filteredPackageCount: number;
+    loadErrorMessage?: string | null;
+  };
 }
 
 export type PurchaseResult =

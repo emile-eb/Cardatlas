@@ -563,7 +563,22 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       return await subscriptionsService.loadPaywall(appUserId);
     } catch (error) {
       if (__DEV__) console.log("[paywall] load_failed", error);
-      return { loading: false, unavailable: true, plans: [] };
+      const message = error instanceof Error ? error.message : "Unknown paywall load error.";
+      return {
+        loading: false,
+        unavailable: true,
+        plans: [],
+        diagnostics: {
+          hasCurrentOffering: false,
+          offeringId: null,
+          serverDescription: null,
+          rawPackageCount: 0,
+          rawPackageIds: [],
+          rawProductIds: [],
+          filteredPackageCount: 0,
+          loadErrorMessage: message
+        }
+      };
     }
   };
 
