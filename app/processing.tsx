@@ -49,6 +49,8 @@ export default function ProcessingScreen() {
   const { session } = useAuth();
   const [scanId, setScanId] = useState<string | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
+  const [processingStage, setProcessingStage] = useState("Preparing scan");
   const [isRetrying, setIsRetrying] = useState(false);
   const [targetStep, setTargetStep] = useState(0);
   const [visibleStep, setVisibleStep] = useState(0);
@@ -107,6 +109,7 @@ export default function ProcessingScreen() {
       if (!scanId || hasNavigatedRef.current) return;
       hasNavigatedRef.current = true;
       setTargetStep(ANALYSIS_STEPS.length - 1);
+      setProcessingStage("Opening results");
 
       const elapsed = Date.now() - startedAtRef.current;
       const holdFor = Math.max(0, MIN_ANALYSIS_EXPERIENCE_MS - elapsed);
@@ -130,14 +133,17 @@ export default function ProcessingScreen() {
       return;
     }
     if (status === "failed") {
+      setProcessingStage("Processing failed");
       setLocalError("We couldn’t finish analyzing this card. Please retry.");
       return;
     }
     if (status === "processing") {
+      setProcessingStage("Processing card");
       setTargetStep(4);
       return;
     }
     if (status === "uploaded") {
+      setProcessingStage("Upload complete");
       setTargetStep(3);
       return;
     }
@@ -153,6 +159,8 @@ export default function ProcessingScreen() {
 
   useEffect(() => {
     if (!pollingError || localError) return;
+    setRawError(pollingError);
+    setProcessingStage("Polling failed");
     setLocalError(formatScanError(pollingError));
   }, [pollingError, localError]);
 
@@ -165,9 +173,12 @@ export default function ProcessingScreen() {
       setTargetStep(0);
       setVisibleStep(0);
       setLocalError(null);
+      setRawError(null);
+      setProcessingStage("Preparing scan");
       setScanId(requestedScanId);
 
       if (requestedScanId) {
+        setProcessingStage("Resuming processing");
         setTargetStep(4);
         if (__DEV__) {
           console.log("[scan_flow] resume_processing", {
@@ -179,6 +190,7 @@ export default function ProcessingScreen() {
       }
 
       if (!frontUri || !backUri) {
+        setProcessingStage("Waiting for photos");
         setLocalError("Capture both sides of the card before starting analysis.");
         return;
       }
@@ -190,10 +202,12 @@ export default function ProcessingScreen() {
         const dbUserId = session?.appUserId ?? session?.userId;
         const authUserId = session?.userId ?? undefined;
         if (!dbUserId) {
+          setProcessingStage("Session unavailable");
           setLocalError("Your session expired before analysis started. Please try again.");
           return;
         }
 
+        setProcessingStage("Creating scan job");
         const job = await scansService.createScanJob({ userId: dbUserId });
         if (!active) return;
         createdScanId = job.id;
@@ -206,6 +220,7 @@ export default function ProcessingScreen() {
         }
 
         failureStage = "front_upload";
+        setProcessingStage("Uploading front photo");
         setTargetStep(1);
         await scansService.attachFrontImage({
           scanId: job.id,
@@ -215,6 +230,7 @@ export default function ProcessingScreen() {
         });
 
         failureStage = "back_upload";
+        setProcessingStage("Uploading back photo");
         setTargetStep(2);
         await scansService.attachBackImage({
           scanId: job.id,
@@ -224,17 +240,29 @@ export default function ProcessingScreen() {
         });
 
         failureStage = "mark_uploaded";
+        setProcessingStage("Finalizing upload");
         await scansService.markUploaded(job.id);
         analyticsService.track(ANALYTICS_EVENTS.scanUploaded, { scanJobId: job.id });
         await subscriptionsService.incrementFreeScansUsed(dbUserId, 1);
         await refreshFromBackend();
 
         failureStage = "invoke_processing";
+        setProcessingStage("Starting search");
         setTargetStep(4);
         await scanProcessingService.startProcessing(job.id);
       } catch (error) {
         if (!active) return;
         const rawMessage = error instanceof Error ? error.message : "Scan processing failed.";
+        setRawError(rawMessage);
+        setProcessingStage(
+          failureStage === "front_upload"
+            ? "Front upload failed"
+            : failureStage === "back_upload"
+              ? "Back upload failed"
+              : failureStage === "invoke_processing"
+                ? "Search failed to start"
+                : "Processing failed"
+        );
         const friendlyMessage = formatScanError(
           failureStage === "front_upload" || failureStage === "back_upload"
             ? "Upload failed."
@@ -283,6 +311,8 @@ export default function ProcessingScreen() {
     try {
       setIsRetrying(true);
       setLocalError(null);
+      setRawError(null);
+      setProcessingStage("Retrying search");
       setTargetStep(4);
       await scanProcessingService.retryScanProcessing(scanId);
       if (__DEV__) {
@@ -356,6 +386,10 @@ export default function ProcessingScreen() {
         <Text style={styles.subtitle}>
           {localError ? "We hit a problem while preparing your collector results." : activeStepLabel}
         </Text>
+        <Text style={styles.statusLine}>
+          Stage: {processingStage}
+          {status ? ` · Status: ${status}` : ""}
+        </Text>
 
         <View style={styles.stepsList}>
           {ANALYSIS_STEPS.map((step, index) => {
@@ -374,6 +408,7 @@ export default function ProcessingScreen() {
       </View>
 
       {localError ? <Text style={styles.error}>{localError}</Text> : null}
+      {rawError ? <Text style={styles.errorDetail}>{rawError}</Text> : null}
       {showRetryButton || showRetakeButton ? (
         <View style={styles.errorActions}>
           {showRetryButton ? (
@@ -497,6 +532,10 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     color: "#6B7382"
   },
+  statusLine: {
+    ...typography.Caption,
+    color: "#6B7382"
+  },
   progressTrack: {
     width: "100%",
     height: 4,
@@ -554,6 +593,12 @@ const styles = StyleSheet.create({
     color: "#8F2018",
     textAlign: "center",
     marginTop: 14
+  },
+  errorDetail: {
+    ...typography.Caption,
+    color: "#8F2018",
+    textAlign: "center",
+    marginTop: 8
   },
   errorActions: {
     width: "100%",
