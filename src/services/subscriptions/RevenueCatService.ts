@@ -182,7 +182,15 @@ class RevenueCatServiceImpl implements RevenueCatService {
       console.log("[revenuecat] offerings_loaded", {
         hasCurrentOffering: Boolean(current),
         offeringKeys: Object.keys(offerings?.all ?? {}),
-        packageCount: Array.isArray(current?.availablePackages) ? current.availablePackages.length : 0
+        currentOfferingId: current?.identifier ?? null,
+        currentServerDescription: current?.serverDescription ?? null,
+        packageCount: Array.isArray(current?.availablePackages) ? current.availablePackages.length : 0,
+        packageIds: Array.isArray(current?.availablePackages)
+          ? current.availablePackages.map((pkg: any) => String(pkg?.identifier ?? ""))
+          : [],
+        productIds: Array.isArray(current?.availablePackages)
+          ? current.availablePackages.map((pkg: any) => String(pkg?.product?.identifier ?? ""))
+          : []
       });
     }
     if (!current) {

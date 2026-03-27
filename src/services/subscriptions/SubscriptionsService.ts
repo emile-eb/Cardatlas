@@ -24,6 +24,15 @@ function getWebPreviewPaywall(): PaywallViewModel {
   return {
     loading: false,
     unavailable: false,
+    diagnostics: {
+      hasCurrentOffering: true,
+      offeringId: "default",
+      serverDescription: "web-preview",
+      rawPackageCount: 2,
+      rawPackageIds: ["$rc_annual", "$rc_monthly"],
+      rawProductIds: ["pro_yearly", "pro_monthly"],
+      filteredPackageCount: 2
+    },
     plans: [
       {
         productId: "pro_yearly",
@@ -110,11 +119,21 @@ function mapOfferingToPaywall(offer: RevenueCatOfferingModel | null): PaywallVie
     return {
       loading: false,
       unavailable: true,
+      diagnostics: {
+        hasCurrentOffering: false,
+        offeringId: null,
+        serverDescription: null,
+        rawPackageCount: 0,
+        rawPackageIds: [],
+        rawProductIds: [],
+        filteredPackageCount: 0
+      },
       plans: []
     };
   }
 
-  const plans = offer.packages
+  const rawPackages = offer.packages ?? [];
+  const plans = rawPackages
     .filter((pkg) => pkg.billingPeriod !== "weekly")
     .map((pkg) => {
     const billingLabel =
@@ -142,6 +161,15 @@ function mapOfferingToPaywall(offer: RevenueCatOfferingModel | null): PaywallVie
   return {
     loading: false,
     unavailable: plans.length === 0,
+    diagnostics: {
+      hasCurrentOffering: true,
+      offeringId: offer.offeringId,
+      serverDescription: offer.serverDescription,
+      rawPackageCount: rawPackages.length,
+      rawPackageIds: rawPackages.map((pkg) => pkg.packageId),
+      rawProductIds: rawPackages.map((pkg) => pkg.productId),
+      filteredPackageCount: plans.length
+    },
     plans
   };
 }

@@ -61,6 +61,13 @@ export default function PaywallScreen() {
     errorMessage: string | null;
     premium: boolean;
     entryPoint: string;
+    hasCurrentOffering: boolean;
+    offeringId: string | null;
+    serverDescription: string | null;
+    rawPackageCount: number;
+    rawPackageIds: string[];
+    rawProductIds: string[];
+    filteredPackageCount: number;
   } | null>(null);
 
   const pageEntrance = useRef(new Animated.Value(0)).current;
@@ -91,7 +98,14 @@ export default function PaywallScreen() {
       unavailable: false,
       errorMessage: null,
       premium,
-      entryPoint
+      entryPoint,
+      hasCurrentOffering: false,
+      offeringId: null,
+      serverDescription: null,
+      rawPackageCount: 0,
+      rawPackageIds: [],
+      rawProductIds: [],
+      filteredPackageCount: 0
     });
 
     loadPaywall()
@@ -109,7 +123,14 @@ export default function PaywallScreen() {
           unavailable: Boolean(model.unavailable),
           errorMessage: null,
           premium,
-          entryPoint
+          entryPoint,
+          hasCurrentOffering: Boolean(model.diagnostics?.hasCurrentOffering),
+          offeringId: model.diagnostics?.offeringId ?? null,
+          serverDescription: model.diagnostics?.serverDescription ?? null,
+          rawPackageCount: model.diagnostics?.rawPackageCount ?? 0,
+          rawPackageIds: model.diagnostics?.rawPackageIds ?? [],
+          rawProductIds: model.diagnostics?.rawProductIds ?? [],
+          filteredPackageCount: model.diagnostics?.filteredPackageCount ?? ordered.length
         });
       })
       .catch((error) => {
@@ -126,7 +147,14 @@ export default function PaywallScreen() {
           unavailable: true,
           errorMessage: message,
           premium,
-          entryPoint
+          entryPoint,
+          hasCurrentOffering: false,
+          offeringId: null,
+          serverDescription: null,
+          rawPackageCount: 0,
+          rawPackageIds: [],
+          rawProductIds: [],
+          filteredPackageCount: 0
         });
       })
       .finally(() => {
@@ -323,9 +351,24 @@ export default function PaywallScreen() {
                   <Text style={styles.debugLine}>premium: {debugDiagnostics.premium ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>loading: {loading ? "yes" : "no"}</Text>
                   <Text style={styles.debugLine}>unavailable: {debugDiagnostics.unavailable ? "yes" : "no"}</Text>
+                  <Text style={styles.debugLine}>
+                    current offering: {debugDiagnostics.hasCurrentOffering ? "yes" : "no"}
+                  </Text>
+                  <Text style={styles.debugLine}>offering id: {debugDiagnostics.offeringId ?? "none"}</Text>
+                  <Text style={styles.debugLine}>
+                    server desc: {debugDiagnostics.serverDescription ?? "none"}
+                  </Text>
                   <Text style={styles.debugLine}>plans: {debugDiagnostics.planCount}</Text>
+                  <Text style={styles.debugLine}>raw packages: {debugDiagnostics.rawPackageCount}</Text>
+                  <Text style={styles.debugLine}>filtered packages: {debugDiagnostics.filteredPackageCount}</Text>
                   <Text style={styles.debugLine}>
                     selected: {selectedPackageId ?? debugDiagnostics.selectedPackageId ?? "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    raw products: {debugDiagnostics.rawProductIds.length ? debugDiagnostics.rawProductIds.join(", ") : "none"}
+                  </Text>
+                  <Text style={styles.debugLine}>
+                    raw package ids: {debugDiagnostics.rawPackageIds.length ? debugDiagnostics.rawPackageIds.join(", ") : "none"}
                   </Text>
                   <Text style={styles.debugLine}>
                     products: {debugDiagnostics.productIds.length ? debugDiagnostics.productIds.join(", ") : "none"}
