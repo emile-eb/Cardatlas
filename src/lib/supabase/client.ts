@@ -1,4 +1,6 @@
 import { appConfig, validateRequiredRuntimeConfig } from "@/lib/config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 let cachedClient: any | null = null;
 
@@ -23,6 +25,7 @@ export async function getSupabaseClient() {
   const sdk = loadSupabaseSdk();
   const client = sdk.createClient(appConfig.supabaseUrl, appConfig.supabaseAnonKey, {
     auth: {
+      storage: Platform.OS === "web" ? undefined : AsyncStorage,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false

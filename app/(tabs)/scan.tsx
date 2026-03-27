@@ -157,6 +157,7 @@ export default function ScanCameraTab() {
   const [tipsOpen, setTipsOpen] = useState(false);
   const [flashMode, setFlashMode] = useState<FlashMode>("off");
   const [pickerMessage, setPickerMessage] = useState<string | null>(null);
+  const [scanErrorDetail, setScanErrorDetail] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
@@ -351,6 +352,7 @@ export default function ScanCameraTab() {
   const applyCapturedPhoto = (side: ScanSide, uri: string) => {
     clearPendingHandoff();
     setPickerMessage(null);
+    setScanErrorDetail(null);
     setScanDraftImage(side, uri);
     trackCapture(side);
 
@@ -365,6 +367,7 @@ export default function ScanCameraTab() {
     try {
       setCapturing(true);
       setPickerMessage(null);
+      setScanErrorDetail(null);
       const capture =
         typeof cameraRef.current.takePictureAsync === "function"
           ? cameraRef.current.takePictureAsync.bind(cameraRef.current)
@@ -390,6 +393,7 @@ export default function ScanCameraTab() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Capture failed.";
       setPickerMessage("We couldn't capture that photo. Please try again.");
+      setScanErrorDetail(message);
       analyticsService.track(ANALYTICS_EVENTS.cameraCaptureFailed, {
         side: activeSide,
         path: "native_camera"
@@ -407,12 +411,19 @@ export default function ScanCameraTab() {
 
   const pickFallbackImage = async (preferCamera: boolean) => {
     setPickerMessage(null);
-    const uri = await pickImageFromDevice({ preferCamera });
-    if (!uri) {
-      setPickerMessage(preferCamera ? "No photo captured." : "No image selected.");
-      return;
+    setScanErrorDetail(null);
+    try {
+      const uri = await pickImageFromDevice({ preferCamera });
+      if (!uri) {
+        setPickerMessage(preferCamera ? "No photo captured." : "No image selected.");
+        return;
+      }
+      applyCapturedPhoto(activeSide, uri);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Image selection failed.";
+      setPickerMessage(preferCamera ? "We couldn't capture a photo." : "We couldn't open your photo library.");
+      setScanErrorDetail(message);
     }
-    applyCapturedPhoto(activeSide, uri);
   };
 
   const retakeSide = () => {
@@ -422,11 +433,13 @@ export default function ScanCameraTab() {
     });
     setScanDraftImage(activeSide, "");
     setPickerMessage(null);
+    setScanErrorDetail(null);
     hasHandedOffRef.current = false;
   };
 
   const retryCamera = () => {
     setCameraError(null);
+    setScanErrorDetail(null);
     setCameraReady(false);
     setCameraInstanceKey((prev) => prev + 1);
   };
@@ -548,6 +561,11 @@ export default function ScanCameraTab() {
         <View style={styles.captureStatePill}>
           <Text style={styles.captureStateText}>{helperText}</Text>
         </View>
+        {scanErrorDetail ? (
+          <View style={styles.errorPill}>
+            <Text style={styles.errorPillText}>{scanErrorDetail}</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={[styles.bottomTray, { paddingBottom: Math.max(insets.bottom + spacing.sm, 18) }]}>
@@ -762,6 +780,21 @@ const styles = StyleSheet.create({
   captureStateText: {
     ...typography.Caption,
     color: "rgba(255,255,255,0.76)",
+    textAlign: "center"
+  },
+  errorPill: {
+    width: "100%",
+    maxWidth: 310,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: "rgba(143, 32, 24, 0.22)",
+    borderWidth: 1,
+    borderColor: "rgba(226, 118, 106, 0.55)"
+  },
+  errorPillText: {
+    ...typography.Caption,
+    color: "#FFD8D4",
     textAlign: "center"
   },
   bottomTray: {
