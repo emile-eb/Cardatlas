@@ -9,6 +9,7 @@ import type {
 
 const FRONT_BUCKET = "scan-fronts";
 const BACK_BUCKET = "scan-backs";
+const MAX_UPLOAD_DIMENSION = 1600;
 
 function inferContentType(localUri: string): string | null {
   const normalized = localUri.split("?")[0].toLowerCase();
@@ -25,17 +26,15 @@ async function normalizeUploadUri(localUri: string): Promise<string> {
     return localUri;
   }
 
-  const normalized = localUri.split("?")[0].toLowerCase();
-  if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
-    return localUri;
-  }
-
   const ImageManipulator = await import("expo-image-manipulator");
+  const actions: Array<{ resize: { width?: number; height?: number } }> = [
+    { resize: { width: MAX_UPLOAD_DIMENSION } }
+  ];
   const result = await ImageManipulator.manipulateAsync(
     localUri,
-    [],
+    actions,
     {
-      compress: 0.9,
+      compress: 0.82,
       format: ImageManipulator.SaveFormat.JPEG
     }
   );
