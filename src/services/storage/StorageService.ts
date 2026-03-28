@@ -11,6 +11,21 @@ const FRONT_BUCKET = "scan-fronts";
 const BACK_BUCKET = "scan-backs";
 const MAX_UPLOAD_DIMENSION = 1600;
 
+export type ScanUploadDebug = {
+  side: ScanImageSide;
+  originalUri: string;
+  normalizedUri: string;
+  normalizationApplied: boolean;
+  originalSizeBytes: number | null;
+  normalizedSizeBytes: number | null;
+  contentType: string;
+};
+
+const latestUploadDebugBySide: Record<ScanImageSide, ScanUploadDebug | null> = {
+  front: null,
+  back: null
+};
+
 function inferContentType(localUri: string): string | null {
   const normalized = localUri.split("?")[0].toLowerCase();
   if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) return "image/jpeg";
@@ -40,6 +55,23 @@ async function normalizeUploadUri(localUri: string): Promise<string> {
   );
 
   return result.uri;
+}
+
+async function getFileSize(localUri: string): Promise<number | null> {
+  if (Platform.OS === "web") {
+    return null;
+  }
+
+  try {
+    const FileSystem = await import("expo-file-system");
+    const info = await FileSystem.getInfoAsync(localUri, { size: true });
+    if ("size" in info && typeof info.size === "number") {
+      return info.size;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 async function uriToBlob(localUri: string): Promise<Blob> {
@@ -108,10 +140,22 @@ class StorageServiceImpl implements StorageService {
     const supabase = await getRequiredSupabaseClient();
     const path = buildScanPath(input, side);
     const bucket = bucketForSide(side);
+    const originalSizeBytes = await getFileSize(input.localUri);
     const uploadUri = await normalizeUploadUri(input.localUri);
+    const normalizedSizeBytes = await getFileSize(uploadUri);
     const blob = await uriToBlob(uploadUri);
     const detectedContentType =
       input.contentType ?? blob.type ?? inferContentType(uploadUri) ?? "image/jpeg";
+
+    latestUploadDebugBySide[side] = {
+      side,
+      originalUri: input.localUri,
+      normalizedUri: uploadUri,
+      normalizationApplied: uploadUri !== input.localUri,
+      originalSizeBytes,
+      normalizedSizeBytes,
+      contentType: detectedContentType
+    };
 
     const { error } = await supabase.storage.from(bucket).upload(path, blob, {
       upsert: true,
@@ -139,3 +183,7 @@ export const storageBuckets = {
   scanFronts: FRONT_BUCKET,
   scanBacks: BACK_BUCKET
 } as const;
+
+export function getLatestScanUploadDebug(side: ScanImageSide): ScanUploadDebug | null {
+  return latestUploadDebugBySide[side];
+}

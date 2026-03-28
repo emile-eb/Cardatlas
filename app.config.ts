@@ -57,7 +57,7 @@ const config = {
     supportsTablet: false,
     bundleIdentifier,
     // Keep this ahead of the latest TestFlight build.
-    buildNumber: "36"
+    buildNumber: "37"
   },
   android: {
     package: bundleIdentifier

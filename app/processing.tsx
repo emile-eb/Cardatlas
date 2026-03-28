@@ -9,6 +9,7 @@ import { guidedFlowTopInset } from "@/theme/safeArea";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
 import { scansService } from "@/services/scans/ScansService";
 import { scanProcessingService } from "@/services/scans/ScanProcessingService";
+import { getLatestScanUploadDebug } from "@/services/storage/StorageService";
 import { useAuth } from "@/features/auth";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
@@ -60,6 +61,16 @@ type ScanDiagnostics = {
   backLocalUri: string | null;
   frontUploadPath: string | null;
   backUploadPath: string | null;
+  frontNormalizedUri: string | null;
+  backNormalizedUri: string | null;
+  frontNormalizationApplied: boolean;
+  backNormalizationApplied: boolean;
+  frontOriginalSizeBytes: number | null;
+  backOriginalSizeBytes: number | null;
+  frontNormalizedSizeBytes: number | null;
+  backNormalizedSizeBytes: number | null;
+  frontContentType: string | null;
+  backContentType: string | null;
   processingError: string | null;
   confidenceLabel: string | null;
   reviewReason: string | null;
@@ -102,6 +113,16 @@ export default function ProcessingScreen() {
     backLocalUri: null,
     frontUploadPath: null,
     backUploadPath: null,
+    frontNormalizedUri: null,
+    backNormalizedUri: null,
+    frontNormalizationApplied: false,
+    backNormalizationApplied: false,
+    frontOriginalSizeBytes: null,
+    backOriginalSizeBytes: null,
+    frontNormalizedSizeBytes: null,
+    backNormalizedSizeBytes: null,
+    frontContentType: null,
+    backContentType: null,
     processingError: null,
     confidenceLabel: null,
     reviewReason: null
@@ -275,6 +296,16 @@ export default function ProcessingScreen() {
         backLocalUri: backUri ?? null,
         frontUploadPath: null,
         backUploadPath: null,
+        frontNormalizedUri: null,
+        backNormalizedUri: null,
+        frontNormalizationApplied: false,
+        backNormalizationApplied: false,
+        frontOriginalSizeBytes: null,
+        backOriginalSizeBytes: null,
+        frontNormalizedSizeBytes: null,
+        backNormalizedSizeBytes: null,
+        frontContentType: null,
+        backContentType: null,
         processingError: null,
         confidenceLabel: null,
         reviewReason: null
@@ -337,12 +368,18 @@ export default function ProcessingScreen() {
           storageOwnerId: authUserId,
           localUri: frontUri
         });
+        const frontUploadDebug = getLatestScanUploadDebug("front");
         const frontJob = await scansService.fetchScanJobById(job.id);
         if (frontJob) {
           setDiagnostics((prev) => ({
             ...prev,
             frontUploadPath: frontJob.uploads.frontImagePath ?? null,
-            backUploadPath: frontJob.uploads.backImagePath ?? null
+            backUploadPath: frontJob.uploads.backImagePath ?? null,
+            frontNormalizedUri: frontUploadDebug?.normalizedUri ?? null,
+            frontNormalizationApplied: frontUploadDebug?.normalizationApplied ?? false,
+            frontOriginalSizeBytes: frontUploadDebug?.originalSizeBytes ?? null,
+            frontNormalizedSizeBytes: frontUploadDebug?.normalizedSizeBytes ?? null,
+            frontContentType: frontUploadDebug?.contentType ?? null
           }));
         }
 
@@ -355,12 +392,18 @@ export default function ProcessingScreen() {
           storageOwnerId: authUserId,
           localUri: backUri
         });
+        const backUploadDebug = getLatestScanUploadDebug("back");
         const backJob = await scansService.fetchScanJobById(job.id);
         if (backJob) {
           setDiagnostics((prev) => ({
             ...prev,
             frontUploadPath: backJob.uploads.frontImagePath ?? null,
-            backUploadPath: backJob.uploads.backImagePath ?? null
+            backUploadPath: backJob.uploads.backImagePath ?? null,
+            backNormalizedUri: backUploadDebug?.normalizedUri ?? null,
+            backNormalizationApplied: backUploadDebug?.normalizationApplied ?? false,
+            backOriginalSizeBytes: backUploadDebug?.originalSizeBytes ?? null,
+            backNormalizedSizeBytes: backUploadDebug?.normalizedSizeBytes ?? null,
+            backContentType: backUploadDebug?.contentType ?? null
           }));
         }
 
@@ -569,6 +612,16 @@ export default function ProcessingScreen() {
         <Text style={styles.diagnosticsLine}>back local uri: {diagnostics.backLocalUri ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front upload path: {diagnostics.frontUploadPath ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>back upload path: {diagnostics.backUploadPath ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front normalized uri: {diagnostics.frontNormalizedUri ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back normalized uri: {diagnostics.backNormalizedUri ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front normalized: {diagnostics.frontNormalizationApplied ? "yes" : "no"}</Text>
+        <Text style={styles.diagnosticsLine}>back normalized: {diagnostics.backNormalizationApplied ? "yes" : "no"}</Text>
+        <Text style={styles.diagnosticsLine}>front original bytes: {diagnostics.frontOriginalSizeBytes ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back original bytes: {diagnostics.backOriginalSizeBytes ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front normalized bytes: {diagnostics.frontNormalizedSizeBytes ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back normalized bytes: {diagnostics.backNormalizedSizeBytes ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front content type: {diagnostics.frontContentType ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back content type: {diagnostics.backContentType ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>raw error: {rawError ?? diagnostics.processingError ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>review reason: {diagnostics.reviewReason ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>confidence: {diagnostics.confidenceLabel ?? "none"}</Text>
