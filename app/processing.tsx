@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -69,6 +69,8 @@ type ScanDiagnostics = {
   backOriginalSizeBytes: number | null;
   frontNormalizedSizeBytes: number | null;
   backNormalizedSizeBytes: number | null;
+  frontUploadedBlobSizeBytes: number | null;
+  backUploadedBlobSizeBytes: number | null;
   frontContentType: string | null;
   backContentType: string | null;
   processingError: string | null;
@@ -121,6 +123,8 @@ export default function ProcessingScreen() {
     backOriginalSizeBytes: null,
     frontNormalizedSizeBytes: null,
     backNormalizedSizeBytes: null,
+    frontUploadedBlobSizeBytes: null,
+    backUploadedBlobSizeBytes: null,
     frontContentType: null,
     backContentType: null,
     processingError: null,
@@ -304,6 +308,8 @@ export default function ProcessingScreen() {
         backOriginalSizeBytes: null,
         frontNormalizedSizeBytes: null,
         backNormalizedSizeBytes: null,
+        frontUploadedBlobSizeBytes: null,
+        backUploadedBlobSizeBytes: null,
         frontContentType: null,
         backContentType: null,
         processingError: null,
@@ -379,6 +385,7 @@ export default function ProcessingScreen() {
             frontNormalizationApplied: frontUploadDebug?.normalizationApplied ?? false,
             frontOriginalSizeBytes: frontUploadDebug?.originalSizeBytes ?? null,
             frontNormalizedSizeBytes: frontUploadDebug?.normalizedSizeBytes ?? null,
+            frontUploadedBlobSizeBytes: frontUploadDebug?.uploadedBlobSizeBytes ?? null,
             frontContentType: frontUploadDebug?.contentType ?? null
           }));
         }
@@ -403,6 +410,7 @@ export default function ProcessingScreen() {
             backNormalizationApplied: backUploadDebug?.normalizationApplied ?? false,
             backOriginalSizeBytes: backUploadDebug?.originalSizeBytes ?? null,
             backNormalizedSizeBytes: backUploadDebug?.normalizedSizeBytes ?? null,
+            backUploadedBlobSizeBytes: backUploadDebug?.uploadedBlobSizeBytes ?? null,
             backContentType: backUploadDebug?.contentType ?? null
           }));
         }
@@ -605,6 +613,9 @@ export default function ProcessingScreen() {
       ) : null}
       <View style={styles.diagnosticsCard}>
         <Text style={styles.diagnosticsTitle}>Scan Diagnostics</Text>
+        <Text style={styles.diagnosticsLine}>diagnostics build: enabled</Text>
+        <Text style={styles.diagnosticsLine}>platform: {Platform.OS}</Text>
+        <Text style={styles.diagnosticsLine}>processing source: {processingSource}</Text>
         <Text style={styles.diagnosticsLine}>scan id: {diagnostics.scanId ?? scanId ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>stage: {processingStage}</Text>
         <Text style={styles.diagnosticsLine}>status: {status ?? "none"}</Text>
@@ -620,6 +631,8 @@ export default function ProcessingScreen() {
         <Text style={styles.diagnosticsLine}>back original bytes: {diagnostics.backOriginalSizeBytes ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front normalized bytes: {diagnostics.frontNormalizedSizeBytes ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>back normalized bytes: {diagnostics.backNormalizedSizeBytes ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front uploaded blob bytes: {diagnostics.frontUploadedBlobSizeBytes ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back uploaded blob bytes: {diagnostics.backUploadedBlobSizeBytes ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front content type: {diagnostics.frontContentType ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>back content type: {diagnostics.backContentType ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>raw error: {rawError ?? diagnostics.processingError ?? "none"}</Text>
