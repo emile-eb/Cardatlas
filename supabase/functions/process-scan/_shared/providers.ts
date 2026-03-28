@@ -190,16 +190,26 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
     const buildEndpoint = (model: string) =>
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
-    const fetchAsInlinePart = async (url: string, fallbackMime = "image/jpeg") => {
+    const sanitizeMimeType = (value: string | null, fallbackMime = "image/jpeg") => {
+      const raw = (value ?? "").split(";")[0]?.trim().toLowerCase();
+      if (!raw) return fallbackMime;
+      if (raw.startsWith("image/")) return raw;
+      return fallbackMime;
+    };
+
+    const fetchAsInlinePart = async (label: "front" | "back", url: string, fallbackMime = "image/jpeg") => {
       const res = await fetch(url);
       if (!res.ok) {
         throw new Error(`Failed to fetch image for Gemini: ${res.status}`);
       }
-      const contentType = res.headers.get("content-type") || fallbackMime;
+      const contentType = sanitizeMimeType(res.headers.get("content-type"), fallbackMime);
       const bytes = new Uint8Array(await res.arrayBuffer());
       let binary = "";
       for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
       return {
+        label,
+        byteSize: bytes.length,
+        contentType,
         inlineData: {
           mimeType: contentType,
           data: btoa(binary)
@@ -208,9 +218,12 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
     };
 
     const imageParts: Array<Record<string, unknown>> = [];
-    imageParts.push(await fetchAsInlinePart(input.frontImageUrl));
+    const frontPart = await fetchAsInlinePart("front", input.frontImageUrl);
+    imageParts.push(frontPart);
+    let backPart: Awaited<ReturnType<typeof fetchAsInlinePart>> | null = null;
     if (input.backImageUrl) {
-      imageParts.push(await fetchAsInlinePart(input.backImageUrl));
+      backPart = await fetchAsInlinePart("back", input.backImageUrl);
+      imageParts.push(backPart);
     }
 
     const jsonTemplate = {
@@ -308,55 +321,92 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
       "- gradingConfidence should be one of: high, medium, low"
     ].join("\n");
 
-    const requestBody = {
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }, ...imageParts]
+    const requestWithParts = async (parts: Array<Record<string, unknown>>) => {
+      const requestBody = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }, ...parts]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.1,
+          responseMimeType: "application/json"
         }
-      ],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json"
+      };
+
+      let response = await fetch(buildEndpoint(configuredModel), {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (response.status === 404) {
+        const modelsRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
+          { method: "GET" }
+        );
+        if (modelsRes.ok) {
+          const modelsJson = await modelsRes.json();
+          const candidate = (modelsJson?.models ?? []).find(
+            (m: any) =>
+              Array.isArray(m.supportedGenerationMethods) &&
+              m.supportedGenerationMethods.includes("generateContent")
+          );
+          const fallbackName = candidate?.name?.replace(/^models\//, "");
+          if (fallbackName) {
+            response = await fetch(buildEndpoint(fallbackName), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(requestBody)
+            });
+          }
+        }
       }
+
+      return response;
     };
 
-    let response = await fetch(buildEndpoint(configuredModel), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (response.status === 404) {
-      const modelsRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-        { method: "GET" }
-      );
-      if (modelsRes.ok) {
-        const modelsJson = await modelsRes.json();
-        const candidate = (modelsJson?.models ?? []).find(
-          (m: any) =>
-            Array.isArray(m.supportedGenerationMethods) &&
-            m.supportedGenerationMethods.includes("generateContent")
-        );
-        const fallbackName = candidate?.name?.replace(/^models\//, "");
-        if (fallbackName) {
-          response = await fetch(buildEndpoint(fallbackName), {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(requestBody)
-          });
-        }
-      }
-    }
+    let response = await requestWithParts(imageParts);
 
     if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Gemini provider error: ${response.status} ${body}`);
+      const combinedBody = await response.text();
+      const diagnostics = [
+        `combined_status=${response.status}`,
+        `front_type=${frontPart.contentType}`,
+        `front_bytes=${frontPart.byteSize}`
+      ];
+
+      if (backPart) {
+        diagnostics.push(`back_type=${backPart.contentType}`);
+        diagnostics.push(`back_bytes=${backPart.byteSize}`);
+      }
+
+      const isolatedResults: string[] = [];
+
+      const frontOnlyResponse = await requestWithParts([frontPart]);
+      if (!frontOnlyResponse.ok) {
+        isolatedResults.push(`front_only=${frontOnlyResponse.status}`);
+      } else {
+        isolatedResults.push("front_only=ok");
+      }
+
+      if (backPart) {
+        const backOnlyResponse = await requestWithParts([backPart]);
+        if (!backOnlyResponse.ok) {
+          isolatedResults.push(`back_only=${backOnlyResponse.status}`);
+        } else {
+          isolatedResults.push("back_only=ok");
+        }
+      }
+
+      throw new Error(
+        `Gemini provider error: ${response.status} ${combinedBody} | diagnostics: ${diagnostics.join(", ")} | isolation: ${isolatedResults.join(", ")}`
+      );
     }
 
     const data = await response.json();
