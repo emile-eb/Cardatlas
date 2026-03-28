@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cardatlas.app",
-      "buildNumber": "29"
+      "buildNumber": "30"
     },
     "plugins": [
       "expo-router",
