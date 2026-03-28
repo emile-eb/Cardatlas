@@ -20,6 +20,29 @@ function inferContentType(localUri: string): string | null {
   return null;
 }
 
+async function normalizeUploadUri(localUri: string): Promise<string> {
+  if (Platform.OS === "web") {
+    return localUri;
+  }
+
+  const normalized = localUri.split("?")[0].toLowerCase();
+  if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+    return localUri;
+  }
+
+  const ImageManipulator = await import("expo-image-manipulator");
+  const result = await ImageManipulator.manipulateAsync(
+    localUri,
+    [],
+    {
+      compress: 0.9,
+      format: ImageManipulator.SaveFormat.JPEG
+    }
+  );
+
+  return result.uri;
+}
+
 async function uriToBlob(localUri: string): Promise<Blob> {
   if (Platform.OS !== "web") {
     return new Promise<Blob>((resolve, reject) => {
@@ -86,9 +109,10 @@ class StorageServiceImpl implements StorageService {
     const supabase = await getRequiredSupabaseClient();
     const path = buildScanPath(input, side);
     const bucket = bucketForSide(side);
-    const blob = await uriToBlob(input.localUri);
+    const uploadUri = await normalizeUploadUri(input.localUri);
+    const blob = await uriToBlob(uploadUri);
     const detectedContentType =
-      input.contentType ?? blob.type ?? inferContentType(input.localUri) ?? "application/octet-stream";
+      input.contentType ?? blob.type ?? inferContentType(uploadUri) ?? "image/jpeg";
 
     const { error } = await supabase.storage.from(bucket).upload(path, blob, {
       upsert: true,
