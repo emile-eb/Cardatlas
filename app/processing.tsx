@@ -3,6 +3,7 @@ import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppState } from "@/state/AppState";
 import { guidedFlowTopInset } from "@/theme/safeArea";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
@@ -27,8 +28,40 @@ const ANALYSIS_STEPS = [
 
 const MIN_ANALYSIS_EXPERIENCE_MS = 1200;
 const PROCESSING_TIMEOUT_MS = 45000;
+const SCAN_ERROR_LOG_KEY = "cardatlas.scanErrorLog";
+const MAX_STORED_SCAN_ERRORS = 8;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+type StoredScanError = {
+  at: string;
+  stage: string;
+  status: string | null;
+  friendlyMessage: string;
+  rawMessage: string | null;
+  scanId: string | null;
+};
+
+async function appendStoredScanError(entry: StoredScanError): Promise<StoredScanError[]> {
+  try {
+    const existingRaw = await AsyncStorage.getItem(SCAN_ERROR_LOG_KEY);
+    const existing = existingRaw ? (JSON.parse(existingRaw) as StoredScanError[]) : [];
+    const next = [entry, ...existing].slice(0, MAX_STORED_SCAN_ERRORS);
+    await AsyncStorage.setItem(SCAN_ERROR_LOG_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return [entry];
+  }
+}
+
+async function loadStoredScanErrors(): Promise<StoredScanError[]> {
+  try {
+    const raw = await AsyncStorage.getItem(SCAN_ERROR_LOG_KEY);
+    return raw ? (JSON.parse(raw) as StoredScanError[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 function formatScanError(message?: string | null, fallback = "We couldn’t finish analyzing this card. Please try again."): string {
   const normalized = `${message ?? ""}`.trim();
@@ -51,6 +84,7 @@ export default function ProcessingScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<string | null>(null);
   const [processingStage, setProcessingStage] = useState("Preparing scan");
+  const [savedErrors, setSavedErrors] = useState<StoredScanError[]>([]);
   const [isRetrying, setIsRetrying] = useState(false);
   const [targetStep, setTargetStep] = useState(0);
   const [visibleStep, setVisibleStep] = useState(0);
@@ -70,6 +104,22 @@ export default function ProcessingScreen() {
     inputRange: [0, 1],
     outputRange: [-10, 242]
   });
+
+  useEffect(() => {
+    void loadStoredScanErrors().then(setSavedErrors);
+  }, []);
+
+  const persistError = async (friendlyMessage: string, rawMessage?: string | null, statusValue?: string | null) => {
+    const next = await appendStoredScanError({
+      at: new Date().toISOString(),
+      stage: processingStage,
+      status: statusValue ?? status ?? null,
+      friendlyMessage,
+      rawMessage: rawMessage ?? null,
+      scanId
+    });
+    setSavedErrors(next);
+  };
 
   useEffect(() => {
     cardEnter.setValue(0);
@@ -134,7 +184,14 @@ export default function ProcessingScreen() {
     }
     if (status === "failed") {
       setProcessingStage("Processing failed");
-      setLocalError("We couldn’t finish analyzing this card. Please retry.");
+      void (async () => {
+        const result = scanId ? await scanProcessingService.getProcessedScanResult(scanId).catch(() => null) : null;
+        const backendMessage = result?.errorMessage ?? result?.reviewReason ?? null;
+        const friendly = formatScanError(backendMessage, "We couldn’t finish analyzing this card. Please retry.");
+        setRawError(backendMessage);
+        setLocalError(friendly);
+        await persistError(friendly, backendMessage, "failed");
+      })();
       return;
     }
     if (status === "processing") {
@@ -161,7 +218,9 @@ export default function ProcessingScreen() {
     if (!pollingError || localError) return;
     setRawError(pollingError);
     setProcessingStage("Polling failed");
-    setLocalError(formatScanError(pollingError));
+    const friendly = formatScanError(pollingError);
+    setLocalError(friendly);
+    void persistError(friendly, pollingError, "polling_failed");
   }, [pollingError, localError]);
 
   useEffect(() => {
@@ -191,7 +250,9 @@ export default function ProcessingScreen() {
 
       if (!frontUri || !backUri) {
         setProcessingStage("Waiting for photos");
-        setLocalError("Capture both sides of the card before starting analysis.");
+        const friendly = "Capture both sides of the card before starting analysis.";
+        setLocalError(friendly);
+        void persistError(friendly, "missing_front_or_back", "missing_photos");
         return;
       }
 
@@ -203,7 +264,9 @@ export default function ProcessingScreen() {
         const authUserId = session?.userId ?? undefined;
         if (!dbUserId) {
           setProcessingStage("Session unavailable");
-          setLocalError("Your session expired before analysis started. Please try again.");
+          const friendly = "Your session expired before analysis started. Please try again.";
+          setLocalError(friendly);
+          void persistError(friendly, "missing_app_user_id", "session_unavailable");
           return;
         }
 
@@ -291,6 +354,7 @@ export default function ProcessingScreen() {
           });
         }
         setLocalError(friendlyMessage);
+        await persistError(friendlyMessage, rawMessage, failureStage);
       }
     };
 
@@ -319,7 +383,11 @@ export default function ProcessingScreen() {
         console.log("[scan_flow] retry_processing", { scanId });
       }
     } catch (error) {
-      setLocalError(formatScanError(error instanceof Error ? error.message : "Retry failed."));
+      const rawMessage = error instanceof Error ? error.message : "Retry failed.";
+      const friendly = formatScanError(rawMessage);
+      setRawError(rawMessage);
+      setLocalError(friendly);
+      await persistError(friendly, rawMessage, "retry_failed");
     } finally {
       setIsRetrying(false);
     }
@@ -409,6 +477,22 @@ export default function ProcessingScreen() {
 
       {localError ? <Text style={styles.error}>{localError}</Text> : null}
       {rawError ? <Text style={styles.errorDetail}>{rawError}</Text> : null}
+      {savedErrors.length ? (
+        <View style={styles.errorLogCard}>
+          <Text style={styles.errorLogTitle}>Latest Scan Errors</Text>
+          {savedErrors.slice(0, 3).map((entry) => (
+            <View key={`${entry.at}:${entry.stage}`} style={styles.errorLogEntry}>
+              <Text style={styles.errorLogStage}>
+                {entry.stage}
+                {entry.status ? ` · ${entry.status}` : ""}
+              </Text>
+              <Text style={styles.errorLogMessage}>{entry.friendlyMessage}</Text>
+              {entry.rawMessage ? <Text style={styles.errorLogRaw}>{entry.rawMessage}</Text> : null}
+              <Text style={styles.errorLogTime}>{new Date(entry.at).toLocaleString()}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
       {showRetryButton || showRetakeButton ? (
         <View style={styles.errorActions}>
           {showRetryButton ? (
@@ -599,6 +683,45 @@ const styles = StyleSheet.create({
     color: "#8F2018",
     textAlign: "center",
     marginTop: 8
+  },
+  errorLogCard: {
+    width: "100%",
+    marginTop: 16,
+    borderRadius: 18,
+    backgroundColor: "#FFF3F1",
+    borderWidth: 1,
+    borderColor: "#E9B8B2",
+    padding: 14,
+    gap: 12
+  },
+  errorLogTitle: {
+    ...typography.H3,
+    color: "#8F2018",
+    fontFamily: "Inter-SemiBold"
+  },
+  errorLogEntry: {
+    gap: 4,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1D0CB"
+  },
+  errorLogStage: {
+    ...typography.BodyMedium,
+    color: "#5C1A16",
+    fontFamily: "Inter-SemiBold"
+  },
+  errorLogMessage: {
+    ...typography.BodyMedium,
+    color: "#8F2018",
+    fontFamily: "Inter-SemiBold"
+  },
+  errorLogRaw: {
+    ...typography.Caption,
+    color: "#7B342E"
+  },
+  errorLogTime: {
+    ...typography.Caption,
+    color: "#8A6D69"
   },
   errorActions: {
     width: "100%",
