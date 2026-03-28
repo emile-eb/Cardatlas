@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAppState } from "@/state/AppState";
 import { guidedFlowTopInset } from "@/theme/safeArea";
 import { colors, layout, radius, spacing, typography } from "@/theme/tokens";
@@ -29,63 +28,20 @@ const ANALYSIS_STEPS = [
 
 const MIN_ANALYSIS_EXPERIENCE_MS = 1200;
 const PROCESSING_TIMEOUT_MS = 45000;
-const SCAN_ERROR_LOG_KEY = "cardatlas.scanErrorLog";
-const MAX_STORED_SCAN_ERRORS = 8;
-
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
-type StoredScanError = {
-  at: string;
-  stage: string;
-  status: string | null;
-  friendlyMessage: string;
-  rawMessage: string | null;
-  scanId: string | null;
-};
-
-async function appendStoredScanError(entry: StoredScanError): Promise<StoredScanError[]> {
-  try {
-    const existingRaw = await AsyncStorage.getItem(SCAN_ERROR_LOG_KEY);
-    const existing = existingRaw ? (JSON.parse(existingRaw) as StoredScanError[]) : [];
-    const next = [entry, ...existing].slice(0, MAX_STORED_SCAN_ERRORS);
-    await AsyncStorage.setItem(SCAN_ERROR_LOG_KEY, JSON.stringify(next));
-    return next;
-  } catch {
-    return [entry];
-  }
-}
 
 type ScanDiagnostics = {
   scanId: string | null;
-  frontLocalUri: string | null;
-  backLocalUri: string | null;
   frontUploadPath: string | null;
   backUploadPath: string | null;
-  frontNormalizedUri: string | null;
-  backNormalizedUri: string | null;
   frontNormalizationApplied: boolean;
   backNormalizationApplied: boolean;
-  frontOriginalSizeBytes: number | null;
-  backOriginalSizeBytes: number | null;
-  frontNormalizedSizeBytes: number | null;
-  backNormalizedSizeBytes: number | null;
   frontUploadedBlobSizeBytes: number | null;
   backUploadedBlobSizeBytes: number | null;
   frontContentType: string | null;
   backContentType: string | null;
   processingError: string | null;
-  confidenceLabel: string | null;
-  reviewReason: string | null;
 };
-
-async function loadStoredScanErrors(): Promise<StoredScanError[]> {
-  try {
-    const raw = await AsyncStorage.getItem(SCAN_ERROR_LOG_KEY);
-    return raw ? (JSON.parse(raw) as StoredScanError[]) : [];
-  } catch {
-    return [];
-  }
-}
 
 function formatScanError(message?: string | null, fallback = "We couldn’t finish analyzing this card. Please try again."): string {
   const normalized = `${message ?? ""}`.trim();
@@ -108,28 +64,17 @@ export default function ProcessingScreen() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [rawError, setRawError] = useState<string | null>(null);
   const [processingStage, setProcessingStage] = useState("Preparing scan");
-  const [savedErrors, setSavedErrors] = useState<StoredScanError[]>([]);
   const [diagnostics, setDiagnostics] = useState<ScanDiagnostics>({
     scanId: null,
-    frontLocalUri: null,
-    backLocalUri: null,
     frontUploadPath: null,
     backUploadPath: null,
-    frontNormalizedUri: null,
-    backNormalizedUri: null,
     frontNormalizationApplied: false,
     backNormalizationApplied: false,
-    frontOriginalSizeBytes: null,
-    backOriginalSizeBytes: null,
-    frontNormalizedSizeBytes: null,
-    backNormalizedSizeBytes: null,
     frontUploadedBlobSizeBytes: null,
     backUploadedBlobSizeBytes: null,
     frontContentType: null,
     backContentType: null,
-    processingError: null,
-    confidenceLabel: null,
-    reviewReason: null
+    processingError: null
   });
   const [isRetrying, setIsRetrying] = useState(false);
   const [targetStep, setTargetStep] = useState(0);
@@ -150,30 +95,6 @@ export default function ProcessingScreen() {
     inputRange: [0, 1],
     outputRange: [-10, 242]
   });
-
-  useEffect(() => {
-    void loadStoredScanErrors().then(setSavedErrors);
-  }, []);
-
-  useEffect(() => {
-    setDiagnostics((prev) => ({
-      ...prev,
-      frontLocalUri: frontUri ?? null,
-      backLocalUri: backUri ?? null
-    }));
-  }, [frontUri, backUri]);
-
-  const persistError = async (friendlyMessage: string, rawMessage?: string | null, statusValue?: string | null) => {
-    const next = await appendStoredScanError({
-      at: new Date().toISOString(),
-      stage: processingStage,
-      status: statusValue ?? status ?? null,
-      friendlyMessage,
-      rawMessage: rawMessage ?? null,
-      scanId
-    });
-    setSavedErrors(next);
-  };
 
   useEffect(() => {
     cardEnter.setValue(0);
@@ -244,13 +165,10 @@ export default function ProcessingScreen() {
         const friendly = formatScanError(backendMessage, "We couldn’t finish analyzing this card. Please retry.");
         setDiagnostics((prev) => ({
           ...prev,
-          processingError: result?.errorMessage ?? null,
-          confidenceLabel: result?.confidenceLabel ?? null,
-          reviewReason: result?.reviewReason ?? null
+          processingError: result?.errorMessage ?? null
         }));
         setRawError(backendMessage);
         setLocalError(friendly);
-        await persistError(friendly, backendMessage, "failed");
       })();
       return;
     }
@@ -280,7 +198,6 @@ export default function ProcessingScreen() {
     setProcessingStage("Polling failed");
     const friendly = formatScanError(pollingError);
     setLocalError(friendly);
-    void persistError(friendly, pollingError, "polling_failed");
   }, [pollingError, localError]);
 
   useEffect(() => {
@@ -296,25 +213,15 @@ export default function ProcessingScreen() {
       setProcessingStage("Preparing scan");
       setDiagnostics({
         scanId: requestedScanId,
-        frontLocalUri: frontUri ?? null,
-        backLocalUri: backUri ?? null,
         frontUploadPath: null,
         backUploadPath: null,
-        frontNormalizedUri: null,
-        backNormalizedUri: null,
         frontNormalizationApplied: false,
         backNormalizationApplied: false,
-        frontOriginalSizeBytes: null,
-        backOriginalSizeBytes: null,
-        frontNormalizedSizeBytes: null,
-        backNormalizedSizeBytes: null,
         frontUploadedBlobSizeBytes: null,
         backUploadedBlobSizeBytes: null,
         frontContentType: null,
         backContentType: null,
-        processingError: null,
-        confidenceLabel: null,
-        reviewReason: null
+        processingError: null
       });
       setScanId(requestedScanId);
 
@@ -330,13 +237,12 @@ export default function ProcessingScreen() {
         return;
       }
 
-      if (!frontUri || !backUri) {
-        setProcessingStage("Waiting for photos");
-        const friendly = "Capture both sides of the card before starting analysis.";
-        setLocalError(friendly);
-        void persistError(friendly, "missing_front_or_back", "missing_photos");
-        return;
-      }
+        if (!frontUri || !backUri) {
+          setProcessingStage("Waiting for photos");
+          const friendly = "Capture both sides of the card before starting analysis.";
+          setLocalError(friendly);
+          return;
+        }
 
       let createdScanId: string | null = null;
       let failureStage = "create";
@@ -348,7 +254,6 @@ export default function ProcessingScreen() {
           setProcessingStage("Session unavailable");
           const friendly = "Your session expired before analysis started. Please try again.";
           setLocalError(friendly);
-          void persistError(friendly, "missing_app_user_id", "session_unavailable");
           return;
         }
 
@@ -381,10 +286,7 @@ export default function ProcessingScreen() {
             ...prev,
             frontUploadPath: frontJob.uploads.frontImagePath ?? null,
             backUploadPath: frontJob.uploads.backImagePath ?? null,
-            frontNormalizedUri: frontUploadDebug?.normalizedUri ?? null,
             frontNormalizationApplied: frontUploadDebug?.normalizationApplied ?? false,
-            frontOriginalSizeBytes: frontUploadDebug?.originalSizeBytes ?? null,
-            frontNormalizedSizeBytes: frontUploadDebug?.normalizedSizeBytes ?? null,
             frontUploadedBlobSizeBytes: frontUploadDebug?.uploadedBlobSizeBytes ?? null,
             frontContentType: frontUploadDebug?.contentType ?? null
           }));
@@ -406,10 +308,7 @@ export default function ProcessingScreen() {
             ...prev,
             frontUploadPath: backJob.uploads.frontImagePath ?? null,
             backUploadPath: backJob.uploads.backImagePath ?? null,
-            backNormalizedUri: backUploadDebug?.normalizedUri ?? null,
             backNormalizationApplied: backUploadDebug?.normalizationApplied ?? false,
-            backOriginalSizeBytes: backUploadDebug?.originalSizeBytes ?? null,
-            backNormalizedSizeBytes: backUploadDebug?.normalizedSizeBytes ?? null,
             backUploadedBlobSizeBytes: backUploadDebug?.uploadedBlobSizeBytes ?? null,
             backContentType: backUploadDebug?.contentType ?? null
           }));
@@ -467,7 +366,6 @@ export default function ProcessingScreen() {
           });
         }
         setLocalError(friendlyMessage);
-        await persistError(friendlyMessage, rawMessage, failureStage);
       }
     };
 
@@ -500,7 +398,6 @@ export default function ProcessingScreen() {
       const friendly = formatScanError(rawMessage);
       setRawError(rawMessage);
       setLocalError(friendly);
-      await persistError(friendly, rawMessage, "retry_failed");
     } finally {
       setIsRetrying(false);
     }
@@ -595,49 +492,20 @@ export default function ProcessingScreen() {
 
       {localError ? <Text style={styles.error}>{localError}</Text> : null}
       {rawError ? <Text style={styles.errorDetail}>{rawError}</Text> : null}
-      {savedErrors.length ? (
-        <View style={styles.errorLogCard}>
-          <Text style={styles.errorLogTitle}>Latest Scan Errors</Text>
-          {savedErrors.slice(0, 3).map((entry) => (
-            <View key={`${entry.at}:${entry.stage}`} style={styles.errorLogEntry}>
-              <Text style={styles.errorLogStage}>
-                {entry.stage}
-                {entry.status ? ` · ${entry.status}` : ""}
-              </Text>
-              <Text style={styles.errorLogMessage}>{entry.friendlyMessage}</Text>
-              {entry.rawMessage ? <Text style={styles.errorLogRaw}>{entry.rawMessage}</Text> : null}
-              <Text style={styles.errorLogTime}>{new Date(entry.at).toLocaleString()}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
       <View style={styles.diagnosticsCard}>
         <Text style={styles.diagnosticsTitle}>Scan Diagnostics</Text>
-        <Text style={styles.diagnosticsLine}>diagnostics build: enabled</Text>
-        <Text style={styles.diagnosticsLine}>platform: {Platform.OS}</Text>
-        <Text style={styles.diagnosticsLine}>processing source: {processingSource}</Text>
         <Text style={styles.diagnosticsLine}>scan id: {diagnostics.scanId ?? scanId ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>stage: {processingStage}</Text>
         <Text style={styles.diagnosticsLine}>status: {status ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>front local uri: {diagnostics.frontLocalUri ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>back local uri: {diagnostics.backLocalUri ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front upload path: {diagnostics.frontUploadPath ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>back upload path: {diagnostics.backUploadPath ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>front normalized uri: {diagnostics.frontNormalizedUri ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>back normalized uri: {diagnostics.backNormalizedUri ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front normalized: {diagnostics.frontNormalizationApplied ? "yes" : "no"}</Text>
         <Text style={styles.diagnosticsLine}>back normalized: {diagnostics.backNormalizationApplied ? "yes" : "no"}</Text>
-        <Text style={styles.diagnosticsLine}>front original bytes: {diagnostics.frontOriginalSizeBytes ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>back original bytes: {diagnostics.backOriginalSizeBytes ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>front normalized bytes: {diagnostics.frontNormalizedSizeBytes ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>back normalized bytes: {diagnostics.backNormalizedSizeBytes ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front uploaded blob bytes: {diagnostics.frontUploadedBlobSizeBytes ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>back uploaded blob bytes: {diagnostics.backUploadedBlobSizeBytes ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>front content type: {diagnostics.frontContentType ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>back content type: {diagnostics.backContentType ?? "none"}</Text>
         <Text style={styles.diagnosticsLine}>raw error: {rawError ?? diagnostics.processingError ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>review reason: {diagnostics.reviewReason ?? "none"}</Text>
-        <Text style={styles.diagnosticsLine}>confidence: {diagnostics.confidenceLabel ?? "none"}</Text>
       </View>
       {showRetryButton || showRetakeButton ? (
         <View style={styles.errorActions}>
@@ -836,45 +704,6 @@ const styles = StyleSheet.create({
     color: "#8F2018",
     textAlign: "center",
     marginTop: 8
-  },
-  errorLogCard: {
-    width: "100%",
-    marginTop: 16,
-    borderRadius: 18,
-    backgroundColor: "#FFF3F1",
-    borderWidth: 1,
-    borderColor: "#E9B8B2",
-    padding: 14,
-    gap: 12
-  },
-  errorLogTitle: {
-    ...typography.H3,
-    color: "#8F2018",
-    fontFamily: "Inter-SemiBold"
-  },
-  errorLogEntry: {
-    gap: 4,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1D0CB"
-  },
-  errorLogStage: {
-    ...typography.BodyMedium,
-    color: "#5C1A16",
-    fontFamily: "Inter-SemiBold"
-  },
-  errorLogMessage: {
-    ...typography.BodyMedium,
-    color: "#8F2018",
-    fontFamily: "Inter-SemiBold"
-  },
-  errorLogRaw: {
-    ...typography.Caption,
-    color: "#7B342E"
-  },
-  errorLogTime: {
-    ...typography.Caption,
-    color: "#8A6D69"
   },
   diagnosticsCard: {
     width: "100%",
