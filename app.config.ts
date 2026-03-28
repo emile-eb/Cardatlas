@@ -56,7 +56,8 @@ const config = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
-    buildNumber: "30"
+    // Keep this ahead of the latest TestFlight build.
+    buildNumber: "33"
   },
   android: {
     package: bundleIdentifier
@@ -69,7 +70,8 @@ const config = {
   },
   experiments: {
     typedRoutes: true
-  }
+  },
+  description: "CardAtlas Expo app configuration."
 };
 
 export default config;
