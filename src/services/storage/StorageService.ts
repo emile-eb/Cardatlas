@@ -18,6 +18,7 @@ export type ScanUploadDebug = {
   normalizationApplied: boolean;
   originalSizeBytes: number | null;
   normalizedSizeBytes: number | null;
+  uploadedBlobSizeBytes: number;
   contentType: string;
 };
 
@@ -40,21 +41,7 @@ async function normalizeUploadUri(localUri: string): Promise<string> {
   if (Platform.OS === "web") {
     return localUri;
   }
-
-  const ImageManipulator = await import("expo-image-manipulator");
-  const actions: Array<{ resize: { width?: number; height?: number } }> = [
-    { resize: { width: MAX_UPLOAD_DIMENSION } }
-  ];
-  const result = await ImageManipulator.manipulateAsync(
-    localUri,
-    actions,
-    {
-      compress: 0.82,
-      format: ImageManipulator.SaveFormat.JPEG
-    }
-  );
-
-  return result.uri;
+  return localUri;
 }
 
 async function getFileSize(localUri: string): Promise<number | null> {
@@ -154,6 +141,7 @@ class StorageServiceImpl implements StorageService {
       normalizationApplied: uploadUri !== input.localUri,
       originalSizeBytes,
       normalizedSizeBytes,
+      uploadedBlobSizeBytes: blob.size,
       contentType: detectedContentType
     };
 
