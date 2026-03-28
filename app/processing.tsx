@@ -54,6 +54,17 @@ async function appendStoredScanError(entry: StoredScanError): Promise<StoredScan
   }
 }
 
+type ScanDiagnostics = {
+  scanId: string | null;
+  frontLocalUri: string | null;
+  backLocalUri: string | null;
+  frontUploadPath: string | null;
+  backUploadPath: string | null;
+  processingError: string | null;
+  confidenceLabel: string | null;
+  reviewReason: string | null;
+};
+
 async function loadStoredScanErrors(): Promise<StoredScanError[]> {
   try {
     const raw = await AsyncStorage.getItem(SCAN_ERROR_LOG_KEY);
@@ -85,6 +96,16 @@ export default function ProcessingScreen() {
   const [rawError, setRawError] = useState<string | null>(null);
   const [processingStage, setProcessingStage] = useState("Preparing scan");
   const [savedErrors, setSavedErrors] = useState<StoredScanError[]>([]);
+  const [diagnostics, setDiagnostics] = useState<ScanDiagnostics>({
+    scanId: null,
+    frontLocalUri: null,
+    backLocalUri: null,
+    frontUploadPath: null,
+    backUploadPath: null,
+    processingError: null,
+    confidenceLabel: null,
+    reviewReason: null
+  });
   const [isRetrying, setIsRetrying] = useState(false);
   const [targetStep, setTargetStep] = useState(0);
   const [visibleStep, setVisibleStep] = useState(0);
@@ -108,6 +129,14 @@ export default function ProcessingScreen() {
   useEffect(() => {
     void loadStoredScanErrors().then(setSavedErrors);
   }, []);
+
+  useEffect(() => {
+    setDiagnostics((prev) => ({
+      ...prev,
+      frontLocalUri: frontUri ?? null,
+      backLocalUri: backUri ?? null
+    }));
+  }, [frontUri, backUri]);
 
   const persistError = async (friendlyMessage: string, rawMessage?: string | null, statusValue?: string | null) => {
     const next = await appendStoredScanError({
@@ -188,6 +217,12 @@ export default function ProcessingScreen() {
         const result = scanId ? await scanProcessingService.getProcessedScanResult(scanId).catch(() => null) : null;
         const backendMessage = result?.errorMessage ?? result?.reviewReason ?? null;
         const friendly = formatScanError(backendMessage, "We couldn’t finish analyzing this card. Please retry.");
+        setDiagnostics((prev) => ({
+          ...prev,
+          processingError: result?.errorMessage ?? null,
+          confidenceLabel: result?.confidenceLabel ?? null,
+          reviewReason: result?.reviewReason ?? null
+        }));
         setRawError(backendMessage);
         setLocalError(friendly);
         await persistError(friendly, backendMessage, "failed");
@@ -234,6 +269,16 @@ export default function ProcessingScreen() {
       setLocalError(null);
       setRawError(null);
       setProcessingStage("Preparing scan");
+      setDiagnostics({
+        scanId: requestedScanId,
+        frontLocalUri: frontUri ?? null,
+        backLocalUri: backUri ?? null,
+        frontUploadPath: null,
+        backUploadPath: null,
+        processingError: null,
+        confidenceLabel: null,
+        reviewReason: null
+      });
       setScanId(requestedScanId);
 
       if (requestedScanId) {
@@ -275,6 +320,7 @@ export default function ProcessingScreen() {
         if (!active) return;
         createdScanId = job.id;
         setScanId(job.id);
+        setDiagnostics((prev) => ({ ...prev, scanId: job.id }));
         if (__DEV__) {
           console.log("[scan_flow] processing_started", {
             scanId: job.id,
@@ -291,6 +337,14 @@ export default function ProcessingScreen() {
           storageOwnerId: authUserId,
           localUri: frontUri
         });
+        const frontJob = await scansService.fetchScanJobById(job.id);
+        if (frontJob) {
+          setDiagnostics((prev) => ({
+            ...prev,
+            frontUploadPath: frontJob.uploads.frontImagePath ?? null,
+            backUploadPath: frontJob.uploads.backImagePath ?? null
+          }));
+        }
 
         failureStage = "back_upload";
         setProcessingStage("Uploading back photo");
@@ -301,6 +355,14 @@ export default function ProcessingScreen() {
           storageOwnerId: authUserId,
           localUri: backUri
         });
+        const backJob = await scansService.fetchScanJobById(job.id);
+        if (backJob) {
+          setDiagnostics((prev) => ({
+            ...prev,
+            frontUploadPath: backJob.uploads.frontImagePath ?? null,
+            backUploadPath: backJob.uploads.backImagePath ?? null
+          }));
+        }
 
         failureStage = "mark_uploaded";
         setProcessingStage("Finalizing upload");
@@ -493,6 +555,19 @@ export default function ProcessingScreen() {
           ))}
         </View>
       ) : null}
+      <View style={styles.diagnosticsCard}>
+        <Text style={styles.diagnosticsTitle}>Scan Diagnostics</Text>
+        <Text style={styles.diagnosticsLine}>scan id: {diagnostics.scanId ?? scanId ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>stage: {processingStage}</Text>
+        <Text style={styles.diagnosticsLine}>status: {status ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front local uri: {diagnostics.frontLocalUri ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back local uri: {diagnostics.backLocalUri ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>front upload path: {diagnostics.frontUploadPath ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>back upload path: {diagnostics.backUploadPath ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>raw error: {rawError ?? diagnostics.processingError ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>review reason: {diagnostics.reviewReason ?? "none"}</Text>
+        <Text style={styles.diagnosticsLine}>confidence: {diagnostics.confidenceLabel ?? "none"}</Text>
+      </View>
       {showRetryButton || showRetakeButton ? (
         <View style={styles.errorActions}>
           {showRetryButton ? (
@@ -722,6 +797,25 @@ const styles = StyleSheet.create({
   errorLogTime: {
     ...typography.Caption,
     color: "#8A6D69"
+  },
+  diagnosticsCard: {
+    width: "100%",
+    marginTop: 16,
+    borderRadius: 18,
+    backgroundColor: "#F7F9FC",
+    borderWidth: 1,
+    borderColor: "#D8E0EA",
+    padding: 14,
+    gap: 6
+  },
+  diagnosticsTitle: {
+    ...typography.H3,
+    color: "#1A2230",
+    fontFamily: "Inter-SemiBold"
+  },
+  diagnosticsLine: {
+    ...typography.BodyMedium,
+    color: "#334155"
   },
   errorActions: {
     width: "100%",
