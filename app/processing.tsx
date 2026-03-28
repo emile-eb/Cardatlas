@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, Easing, Image, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Image, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -472,6 +472,11 @@ export default function ProcessingScreen() {
 
   return (
     <Animated.View style={[styles.screen, { opacity: contentOpacity, paddingTop: guidedFlowTopInset(insets.top) }]}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.heroBlock}>
         <View style={styles.cardGlow} />
         <Animated.View
@@ -580,6 +585,7 @@ export default function ProcessingScreen() {
           <SecondaryButton title="Retake Photos" onPress={restartCapture} />
         </View>
       ) : null}
+      </ScrollView>
     </Animated.View>
   );
 }
@@ -591,6 +597,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
     padding: layout.pagePadding
+  },
+  scroll: {
+    width: "100%"
+  },
+  scrollContent: {
+    paddingBottom: 28
   },
   heroBlock: {
     width: "100%",
