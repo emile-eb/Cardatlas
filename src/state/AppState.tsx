@@ -280,7 +280,10 @@ export function AppStateProvider({ children }: PropsWithChildren) {
 
   const canUseScan = canScan(gateContext);
   const aiEnabled = canUseAI(gateContext);
-  const startupRoute = resolveStartupRoute({ authStatus: status, gateContext });
+  const startupRoute =
+    status === "authenticated" && hasBackendUser && !hasHydratedBootstrapState
+      ? "/splash"
+      : resolveStartupRoute({ authStatus: status, gateContext });
   const shouldShowSessionPaywall = shouldShowSessionPaywallState({
     status,
     hasBackendUser,
