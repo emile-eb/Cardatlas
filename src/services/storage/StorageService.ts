@@ -61,22 +61,40 @@ async function getFileSize(localUri: string): Promise<number | null> {
   }
 }
 
-async function uriToBlob(localUri: string): Promise<Blob> {
+function base64ToUint8Array(base64: string): Uint8Array {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  const cleaned = base64.replace(/[^A-Za-z0-9+/=]/g, "");
+  let padding = 0;
+  if (cleaned.endsWith("==")) padding = 2;
+  else if (cleaned.endsWith("=")) padding = 1;
+
+  const outputLength = Math.floor((cleaned.length * 3) / 4) - padding;
+  const bytes = new Uint8Array(outputLength);
+  let byteIndex = 0;
+
+  for (let i = 0; i < cleaned.length; i += 4) {
+    const enc1 = chars.indexOf(cleaned[i] ?? "A");
+    const enc2 = chars.indexOf(cleaned[i + 1] ?? "A");
+    const enc3 = cleaned[i + 2] === "=" ? 64 : chars.indexOf(cleaned[i + 2] ?? "A");
+    const enc4 = cleaned[i + 3] === "=" ? 64 : chars.indexOf(cleaned[i + 3] ?? "A");
+
+    const chunk = (enc1 << 18) | (enc2 << 12) | ((enc3 & 63) << 6) | (enc4 & 63);
+
+    if (byteIndex < outputLength) bytes[byteIndex++] = (chunk >> 16) & 255;
+    if (enc3 !== 64 && byteIndex < outputLength) bytes[byteIndex++] = (chunk >> 8) & 255;
+    if (enc4 !== 64 && byteIndex < outputLength) bytes[byteIndex++] = chunk & 255;
+  }
+
+  return bytes;
+}
+
+async function uriToUploadBody(localUri: string): Promise<Blob | Uint8Array> {
   if (Platform.OS !== "web") {
-    return new Promise<Blob>((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.onerror = () => reject(new Error(`Failed to read image at uri: ${localUri}`));
-      xhr.onload = () => {
-        if (xhr.status >= 400) {
-          reject(new Error(`Failed to read image at uri: ${localUri}`));
-          return;
-        }
-        resolve(xhr.response as Blob);
-      };
-      xhr.responseType = "blob";
-      xhr.open("GET", localUri, true);
-      xhr.send();
+    const FileSystem = await import("expo-file-system");
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64
     });
+    return base64ToUint8Array(base64);
   }
 
   const response = await fetch(localUri);
@@ -130,9 +148,13 @@ class StorageServiceImpl implements StorageService {
     const originalSizeBytes = await getFileSize(input.localUri);
     const uploadUri = await normalizeUploadUri(input.localUri);
     const normalizedSizeBytes = await getFileSize(uploadUri);
-    const blob = await uriToBlob(uploadUri);
+    const uploadBody = await uriToUploadBody(uploadUri);
     const detectedContentType =
-      input.contentType ?? blob.type ?? inferContentType(uploadUri) ?? "image/jpeg";
+      input.contentType ??
+      (uploadBody instanceof Blob ? uploadBody.type : null) ??
+      inferContentType(uploadUri) ??
+      "image/jpeg";
+    const uploadSizeBytes = uploadBody instanceof Blob ? uploadBody.size : uploadBody.byteLength;
 
     latestUploadDebugBySide[side] = {
       side,
@@ -141,11 +163,11 @@ class StorageServiceImpl implements StorageService {
       normalizationApplied: uploadUri !== input.localUri,
       originalSizeBytes,
       normalizedSizeBytes,
-      uploadedBlobSizeBytes: blob.size,
+      uploadedBlobSizeBytes: uploadSizeBytes,
       contentType: detectedContentType
     };
 
-    const { error } = await supabase.storage.from(bucket).upload(path, blob, {
+    const { error } = await supabase.storage.from(bucket).upload(path, uploadBody, {
       upsert: true,
       contentType: detectedContentType
     });

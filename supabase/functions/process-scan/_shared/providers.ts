@@ -210,7 +210,7 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
         label,
         byteSize: bytes.length,
         contentType,
-        inlineData: {
+        part: {
           mimeType: contentType,
           data: btoa(binary)
         }
@@ -219,11 +219,11 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
 
     const imageParts: Array<Record<string, unknown>> = [];
     const frontPart = await fetchAsInlinePart("front", input.frontImageUrl);
-    imageParts.push(frontPart);
+    imageParts.push({ inlineData: frontPart.part });
     let backPart: Awaited<ReturnType<typeof fetchAsInlinePart>> | null = null;
     if (input.backImageUrl) {
       backPart = await fetchAsInlinePart("back", input.backImageUrl);
-      imageParts.push(backPart);
+      imageParts.push({ inlineData: backPart.part });
     }
 
     const jsonTemplate = {
@@ -388,7 +388,7 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
 
       const isolatedResults: string[] = [];
 
-      const frontOnlyResponse = await requestWithParts([frontPart]);
+      const frontOnlyResponse = await requestWithParts([{ inlineData: frontPart.part }]);
       if (!frontOnlyResponse.ok) {
         isolatedResults.push(`front_only=${frontOnlyResponse.status}`);
       } else {
@@ -396,7 +396,7 @@ class GoogleGeminiProvider implements CardRecognitionProvider {
       }
 
       if (backPart) {
-        const backOnlyResponse = await requestWithParts([backPart]);
+        const backOnlyResponse = await requestWithParts([{ inlineData: backPart.part }]);
         if (!backOnlyResponse.ok) {
           isolatedResults.push(`back_only=${backOnlyResponse.status}`);
         } else {
