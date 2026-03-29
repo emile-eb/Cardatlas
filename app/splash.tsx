@@ -20,9 +20,12 @@ export default function SplashScreen() {
       return;
     }
 
+    if (startupRoute === "/splash") {
+      return;
+    }
+
     const t = setTimeout(() => {
-      const nextRoute = startupRoute === "/splash" ? "/onboarding" : startupRoute;
-      router.replace(nextRoute);
+      router.replace(startupRoute);
     }, 1100);
     return () => clearTimeout(t);
   }, [status, startupRoute]);
