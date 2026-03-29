@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cardatlas.app",
-      "buildNumber": "45"
+      "buildNumber": "46"
     },
     "android": {
       "adaptiveIcon": {
