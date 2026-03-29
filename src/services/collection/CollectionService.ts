@@ -3,6 +3,43 @@ import type { CardItem } from "@/types/models";
 import type { CollectionItem, UUID } from "@/types";
 import { calculateAttributeAdjustedValue } from "@/services/valuation/CollectionValuationService";
 
+function normalizeGradeScenario(grade?: string | null): "9" | "10" | null {
+  const value = Number((grade ?? "").trim());
+  if (!Number.isFinite(value)) return null;
+  if (value >= 9.5) return "10";
+  if (value >= 9) return "9";
+  return null;
+}
+
+async function resolveGradingScenarioValue(
+  supabase: any,
+  cardId: UUID,
+  grade?: string | null
+): Promise<number | null> {
+  const preferredScenario = normalizeGradeScenario(grade);
+  const scenarioOrder = preferredScenario === "10" ? ["10", "9"] : ["9", "10"];
+
+  const { data, error } = await supabase
+    .from("card_grading_scenarios")
+    .select("assumed_grade,estimated_value")
+    .eq("card_id", cardId)
+    .eq("grading_company", "PSA")
+    .in("assumed_grade", ["9", "10"]);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as Array<{ assumed_grade: string; estimated_value: number | null }>;
+  for (const assumedGrade of scenarioOrder) {
+    const match = rows.find((row) => String(row.assumed_grade) === assumedGrade);
+    const estimatedValue = Number(match?.estimated_value ?? 0);
+    if (Number.isFinite(estimatedValue) && estimatedValue > 0) {
+      return estimatedValue;
+    }
+  }
+
+  return null;
+}
+
 export interface AddCollectionItemInput {
   userId: UUID;
   card: CardItem;
@@ -219,7 +256,7 @@ class CollectionServiceImpl implements CollectionService {
 
     const { data: existingItem, error: existingItemError } = await supabase
       .from("collection_items")
-      .select("latest_valuation_snapshot_id,is_autograph,is_memorabilia,is_parallel,parallel_name,serial_number,is_graded,grading_company,grade")
+      .select("card_id,latest_valuation_snapshot_id,is_autograph,is_memorabilia,is_parallel,parallel_name,serial_number,is_graded,grading_company,grade")
       .eq("id", collectionItemId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -259,12 +296,24 @@ class CollectionServiceImpl implements CollectionService {
       grade: Object.prototype.hasOwnProperty.call(input, "grade") ? input.grade ?? null : existingItem?.grade ?? null
     };
 
+    const scenarioAdjustedValue =
+      mergedAttributes.isGraded && existingItem?.card_id
+        ? await resolveGradingScenarioValue(supabase, existingItem.card_id as UUID, mergedAttributes.grade)
+        : null;
+
     const valuation = calculateAttributeAdjustedValue({
       baseReferenceValue,
       ...mergedAttributes
     });
-    payload.adjusted_value = baseReferenceValue > 0 ? valuation.adjustedValue : null;
-    payload.valuation_source = baseReferenceValue > 0 ? "attribute_adjusted" : null;
+
+    payload.adjusted_value =
+      scenarioAdjustedValue ??
+      (baseReferenceValue > 0 ? valuation.adjustedValue : null);
+    payload.valuation_source = scenarioAdjustedValue
+      ? "grading_outlook"
+      : baseReferenceValue > 0
+        ? "attribute_adjusted"
+        : null;
     payload.valuation_updated_at = new Date().toISOString();
 
     const { data, error } = await supabase

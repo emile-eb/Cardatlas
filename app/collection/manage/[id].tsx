@@ -142,7 +142,7 @@ export default function ManageCollectionItemScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.previewSection}>
           {item.imageFront ? (
             <Image source={{ uri: item.imageFront }} style={styles.previewImage} />

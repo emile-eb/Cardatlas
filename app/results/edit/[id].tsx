@@ -147,7 +147,7 @@ export default function EditResultScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {likelyMatches.length ? (
           <Panel>
             <Text style={styles.panelTitle}>Suggested Cards</Text>

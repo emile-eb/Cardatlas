@@ -209,7 +209,7 @@ export default function HomeTab() {
   };
 
   return (
-    <ScrollView ref={scrollRef} style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollRef} style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.brandLogoFrame}>
           <Image source={logoImage} style={styles.brandLogo} resizeMode="contain" />

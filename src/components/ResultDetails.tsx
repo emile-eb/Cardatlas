@@ -122,6 +122,7 @@ export function ResultDetails({
           { paddingBottom: isInCollection ? 140 : 220 + insets.bottom },
           contentContainerStyle
         ]}
+        showsVerticalScrollIndicator={false}
       >
         {topSpacerHeight > 0 ? <View style={{ height: topSpacerHeight }} /> : null}
         {!hideCloseButton ? (
@@ -206,7 +207,7 @@ export function ResultDetails({
           />
           <GradingOutlookPanel
             cardId={recentSalesCardId}
-            rawValue={displayValue}
+            rawValue={baseReferenceValue}
             sourceScanId={detailCollectionItem?.sourceScanId ?? sourceScanId ?? undefined}
             onOpenDetails={
               detailRouteParams

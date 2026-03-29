@@ -70,7 +70,7 @@ export default function CollectionHistoryScreen() {
   );
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, isEmpty && styles.contentEmpty]}>
+    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, isEmpty && styles.contentEmpty]} showsVerticalScrollIndicator={false}>
       <View style={styles.headerRow}>
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={18} color={colors.textPrimary} />

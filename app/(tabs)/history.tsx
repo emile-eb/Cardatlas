@@ -12,7 +12,7 @@ export default function HistoryTab() {
   const older = visibleHistory.slice(3);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Scan History</Text>
       <Text style={styles.sub}>Reopen past scans and revisit collector context</Text>
 

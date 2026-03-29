@@ -355,7 +355,7 @@ export default function CollectionTab() {
               </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.sheetContent}>
+            <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false}>
               {renderFilterGroup("Sport", sports, sportFilter, setSportFilter, "All Sports")}
               {renderFilterGroup("Team", teams, teamFilter, setTeamFilter, "All Teams")}
               {renderFilterGroup("Brand", brands, brandFilter, setBrandFilter, "All Brands")}

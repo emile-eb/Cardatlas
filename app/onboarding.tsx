@@ -238,6 +238,7 @@ export default function OnboardingScreen() {
           { paddingBottom: Math.max(insets.bottom, spacing.md) },
           isIntro && styles.bodyContentIntro
         ]}
+        showsVerticalScrollIndicator={false}
       >
         <Animated.View
           style={[

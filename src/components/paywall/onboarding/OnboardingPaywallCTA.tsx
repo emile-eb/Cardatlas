@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import { colors, typography } from "@/theme/tokens";
 
@@ -11,8 +12,10 @@ export function OnboardingPaywallCTA({
   onPress: () => void;
   caption?: string;
 }) {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       <PrimaryButton title={title} onPress={onPress} style={styles.button} />
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
     </View>

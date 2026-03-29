@@ -124,7 +124,7 @@ export default function GradingOutlookDetailScreen() {
           return;
         }
         const nextOutlook = await gradingOutlookService.getGradingOutlook(cardId, {
-          rawValue: nextCard.referenceValue,
+          rawValue: Number(nextCard.baseReferenceValue ?? nextCard.referenceValue ?? 0),
           sourceScanId: nextCard.sourceScanId ?? null
         });
         if (!active) return;
@@ -169,7 +169,7 @@ export default function GradingOutlookDetailScreen() {
     return <ResultsDetailStatusState title="Grading Outlook Unavailable" message={errorText ?? "We couldn't load this grading view."} backHref={backHref} />;
   }
 
-  const referenceValue = Number(card.referenceValue ?? result?.card?.referenceValue ?? 0);
+  const referenceValue = Number(card.baseReferenceValue ?? card.referenceValue ?? result?.card?.referenceValue ?? 0);
 
   return (
     <ResultsDetailScaffold

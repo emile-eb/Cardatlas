@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     minHeight: "100%"
   },
   copyBlock: {
-    marginTop: 112,
+    marginTop: 88,
     gap: 10
   },
   trustCopyWrap: {

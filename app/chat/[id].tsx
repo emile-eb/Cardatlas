@@ -202,7 +202,11 @@ export default function ChatScreen() {
       </View>
 
       <View style={styles.chatArea}>
-        <ScrollView style={styles.chat} contentContainerStyle={[styles.chatContent, messages.length === 0 && styles.chatContentEmpty]}>
+        <ScrollView
+          style={styles.chat}
+          contentContainerStyle={[styles.chatContent, messages.length === 0 && styles.chatContentEmpty]}
+          showsVerticalScrollIndicator={false}
+        >
           {messages.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyEyebrow}>{isGeneral ? "ASK WHAT TO DO NEXT" : "CARD-SCOPED GUIDANCE"}</Text>

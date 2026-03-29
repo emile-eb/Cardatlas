@@ -39,7 +39,7 @@ export function ResultsDetailScaffold({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(28, insets.bottom + 20) }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: Math.max(28, insets.bottom + 20) }]} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCopy}>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>

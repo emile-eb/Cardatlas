@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { PrimaryButton } from "@/components/PrimaryButton";
 import type { BillingPeriod, PaywallPlanViewModel } from "@/types";
@@ -193,12 +194,13 @@ export function OnboardingPaywallPlanSelector({
   statusText?: string | null;
   onPurchase: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const yearlyPlan = plans.find((plan) => periodKey(plan) === "yearly") ?? null;
   const monthlyPlan = plans.find((plan) => periodKey(plan) === "monthly") ?? null;
   const visiblePlans = [yearlyPlan, monthlyPlan].filter(Boolean) as PaywallPlanViewModel[];
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 14) }]}>
       <TrialTimeline />
 
       <View style={styles.planSection}>
@@ -254,13 +256,13 @@ export function OnboardingPaywallPlanSelector({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: 18,
+    marginTop: 10,
     paddingBottom: 8,
     flex: 1
   },
   timelineWrap: {
     gap: 4,
-    marginTop: 40
+    marginTop: 24
   },
   timelineRow: {
     flexDirection: "row",
@@ -326,7 +328,7 @@ const styles = StyleSheet.create({
     marginTop: 6
   },
   planSection: {
-    marginTop: "auto",
+    marginTop: 24,
     paddingTop: 24
   },
   planGrid: {
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
   cta: {
     minHeight: 58,
     borderRadius: 18,
-    marginTop: 16,
+    marginTop: 18,
     backgroundColor: colors.accentPrimary,
     shadowColor: colors.accentPrimary,
     shadowOpacity: 0.16,

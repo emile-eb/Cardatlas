@@ -32,7 +32,7 @@ export default function CollectionSearchScreen() {
   }, [cards, query, quickFilter]);
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Search Collection</Text>
       <Text style={styles.sub}>Find cards by player, set, team, or value</Text>
       <TextInput
