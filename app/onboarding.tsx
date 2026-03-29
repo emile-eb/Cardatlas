@@ -194,7 +194,7 @@ export default function OnboardingScreen() {
         await setHasPromptedForNotifications(true);
       }
 
-      completeOnboarding();
+      await completeOnboarding();
       presentPaywall("onboarding", { replace: true });
       return;
     }

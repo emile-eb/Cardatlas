@@ -1,6 +1,7 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { router } from "expo-router";
 import { AppState as RNAppState, Linking } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CardItem } from "@/types/models";
 import type {
   EntitlementState,
@@ -74,7 +75,7 @@ type AppStateValue = {
   scanDraft: ScanDraft;
   setScanDraftImage: (side: "front" | "back", uri: string) => void;
   clearScanDraft: () => void;
-  completeOnboarding: () => void;
+  completeOnboarding: () => Promise<void>;
   dismissOnboardingPaywall: () => void;
   saveOnboardingProfile: (partial: Partial<OnboardingProfile>) => void;
   addCardToCollection: (id: string) => { added: boolean; alreadyExists: boolean };
@@ -112,6 +113,10 @@ type AppStateValue = {
 };
 
 const AppStateContext = createContext<AppStateValue | null>(null);
+
+function onboardingCompletionKey(appUserId: string) {
+  return `cardatlas.onboardingCompleted.${appUserId}`;
+}
 
 function toCardItemFromHighlight(highlight: HomeDashboardResponse["collectionHighlights"][number]): CardItem {
   const playerInfo = (highlight.card.playerInfo ?? {}) as Record<string, string>;
@@ -292,6 +297,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     if (!appUserId) return;
 
     try {
+      const localOnboardingCompleted = await AsyncStorage.getItem(onboardingCompletionKey(appUserId));
       const [usage, entitlements, trialState, completed, dashboard] = await Promise.all([
         subscriptionsService.getUsageState(appUserId),
         subscriptionsService.getEntitlements(appUserId),
@@ -299,11 +305,12 @@ export function AppStateProvider({ children }: PropsWithChildren) {
         onboardingService.isCompleted(appUserId),
         dashboardService.getHomeDashboard(appUserId)
       ]);
+      const resolvedOnboardingCompleted = completed || localOnboardingCompleted === "true";
 
       setUsageState(usage);
       setEntitlementState(entitlements);
       setFreeTrialState(trialState);
-      setOnboardingDone(completed);
+      setOnboardingDone(resolvedOnboardingCompleted);
       setHomeDashboard(dashboard);
 
       const nextCards = dashboard.collectionHighlights.map(toCardItemFromHighlight);
@@ -312,6 +319,11 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       setCards((prev) => mergeCollectionCards(nextCards, prev));
       setHistory((prev) => mergeCardItemsById(prev, nextHistory));
       setHasHydratedBootstrapState(true);
+      if (resolvedOnboardingCompleted && !completed) {
+        void onboardingService.markCompleted(appUserId).catch((error) => {
+          console.warn("Failed to sync onboarding completion:", error);
+        });
+      }
       analyticsService.track(ANALYTICS_EVENTS.bootstrapHydrated, {
         isPremium: entitlements.isPremium,
         scansRemaining: usage.scansRemaining
@@ -328,6 +340,7 @@ export function AppStateProvider({ children }: PropsWithChildren) {
     setHasHydratedBootstrapState(false);
     setHasShownSessionPaywall(false);
     setCompletedOnboardingThisSession(false);
+    setOnboardingDone(false);
   }, [appUserId]);
 
   useEffect(() => {
@@ -702,13 +715,21 @@ export function AppStateProvider({ children }: PropsWithChildren) {
       purchasePlan,
       restoreBilling,
       openManageSubscription,
-      completeOnboarding: () => {
+      completeOnboarding: async () => {
         setOnboardingDone(true);
         setCompletedOnboardingThisSession(true);
         if (!hasBackendUser) return;
-        void onboardingService.markCompleted(appUserId as string).catch((error) => {
+        const key = onboardingCompletionKey(appUserId as string);
+        try {
+          await AsyncStorage.setItem(key, "true");
+        } catch (error) {
+          console.warn("Failed to persist onboarding completion locally:", error);
+        }
+        try {
+          await onboardingService.markCompleted(appUserId as string);
+        } catch (error) {
           console.warn("Failed to mark onboarding complete:", error);
-        });
+        }
         analyticsService.track(ANALYTICS_EVENTS.onboardingCompleted);
       },
       dismissOnboardingPaywall: () => setOnboardingPaywallSeen(true),

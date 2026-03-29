@@ -193,7 +193,7 @@ export default function ScanCameraTab() {
     if (currentSideCaptured) return `${sideLabel(activeSide)} captured. You can retake it or continue to the next side.`;
     return isNativeCamera
       ? "Align the card corners with the frame, or choose a photo from your library."
-      : "Use camera capture or upload a card photo to continue.";
+      : "";
   }, [activeSide, currentSideCaptured, isNativeCamera, pickerMessage, ready]);
 
   const clearPendingHandoff = () => {

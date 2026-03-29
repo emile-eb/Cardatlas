@@ -47,6 +47,7 @@ export function ResultDetails({
   const { preferences } = useAppPreferences();
   const insets = useSafeAreaInsets();
   const [heroRevealPulseToken, setHeroRevealPulseToken] = useState(0);
+  const [isAddingToCollection, setIsAddingToCollection] = useState(false);
   const rarityVisuals = useRarityVisuals(card.rarityLabel);
   const handleRarityRevealed = useCallback(() => {
     setHeroRevealPulseToken((prev) => prev + 1);
@@ -305,22 +306,31 @@ export function ResultDetails({
           <View style={styles.stickyInner}>
             <PrimaryButton
               title="Add to Collection"
+              pending={isAddingToCollection}
+              pendingLabel="Adding..."
               onPress={async () => {
+                if (isAddingToCollection) return;
+                setIsAddingToCollection(true);
                 analyticsService.track(ANALYTICS_EVENTS.addToCollectionFromResults, {
                   cardId: card.id,
                   sourceScanId: sourceScanId ?? undefined
                 });
-                if (sourceScanId) {
-                  const result = await addProcessedScanToCollection(sourceScanId);
+
+                try {
+                  if (sourceScanId) {
+                    const result = await addProcessedScanToCollection(sourceScanId);
+                    if (result.added || result.alreadyExists) {
+                      router.replace("/(tabs)/collection");
+                    }
+                    return;
+                  }
+
+                  const result = addCardToCollection(card.id);
                   if (result.added || result.alreadyExists) {
                     router.replace("/(tabs)/collection");
                   }
-                  return;
-                }
-
-                const result = addCardToCollection(card.id);
-                if (result.added || result.alreadyExists) {
-                  router.replace("/(tabs)/collection");
+                } finally {
+                  setIsAddingToCollection(false);
                 }
               }}
             />
