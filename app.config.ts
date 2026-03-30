@@ -48,7 +48,7 @@ const config = {
   version: "1.0.0",
   orientation: "portrait",
   userInterfaceStyle: "light",
-  icon: "./assets/App Icon.png",
+  icon: "./assets/New App Icon.png",
   splash: {
     resizeMode: "contain",
     backgroundColor: "#ffffff"
@@ -63,7 +63,7 @@ const config = {
   android: {
     package: bundleIdentifier,
     adaptiveIcon: {
-      foregroundImage: "./assets/App Icon.png",
+      foregroundImage: "./assets/New App Icon.png",
       backgroundColor: "#ffffff"
     }
   },

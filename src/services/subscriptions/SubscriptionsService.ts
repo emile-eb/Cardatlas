@@ -283,6 +283,15 @@ class SubscriptionsServiceImpl implements SubscriptionsService {
   }
 
   async getEntitlements(userId: UUID): Promise<EntitlementState> {
+    if (Platform.OS === "web") {
+      return {
+        isPremium: true,
+        source: "subscription",
+        expiresAt: null,
+        productId: "web_preview"
+      };
+    }
+
     const state = await this.getState(userId);
     return mapEntitlementFromState(state);
   }
