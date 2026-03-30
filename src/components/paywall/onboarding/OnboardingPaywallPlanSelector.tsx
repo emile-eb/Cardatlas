@@ -75,7 +75,8 @@ function ctaTitle(plan: PaywallPlanViewModel | null): string {
 function billingClarification(plan: PaywallPlanViewModel | null): string | null {
   if (!plan) return null;
   const period = periodKey(plan);
-  const periodText = period === "yearly" ? "year" : period === "monthly" ? "month" : period === "weekly" ? "week" : "period";
+  const periodText =
+    period === "yearly" ? "year" : period === "monthly" ? "month" : period === "weekly" ? "week" : "period";
   const equivalent = equivalentLine(plan);
 
   if (plan.hasTrial) {
@@ -89,24 +90,37 @@ function billingClarification(plan: PaywallPlanViewModel | null): string | null 
     : `Billed ${plan.priceLabel} per ${periodText}`;
 }
 
-function TrialTimeline() {
-  const rows = [
-    {
-      title: "Today",
-      body: "Unlock unlimited scans, AI collector tools, and premium market intelligence.",
-      tone: "active" as const
-    },
-    {
-      title: "In 2 Days — Reminder",
-      body: "We’ll remind you that your trial is ending soon.",
-      tone: "active" as const
-    },
-    {
-      title: "In 3 Days — Billing Starts",
-      body: "You’ll be charged on the correct billing date unless you cancel anytime before.",
-      tone: "neutral" as const
-    }
-  ];
+function TrialTimeline({ hasTrial }: { hasTrial: boolean }) {
+  const rows = hasTrial
+    ? [
+        {
+          title: "Today",
+          body: "Unlock unlimited scans, AI collector tools, and premium market intelligence.",
+          tone: "active" as const
+        },
+        {
+          title: "In 2 Days - Reminder",
+          body: "We'll remind you that your trial is ending soon.",
+          tone: "active" as const
+        },
+        {
+          title: "In 3 Days - Billing Starts",
+          body: "You'll be charged on the correct billing date unless you cancel anytime before.",
+          tone: "neutral" as const
+        }
+      ]
+    : [
+        {
+          title: "Today",
+          body: "Unlock unlimited scans, AI collector tools, and premium market intelligence.",
+          tone: "active" as const
+        },
+        {
+          title: "Today - Billing Starts",
+          body: "Your selected plan begins immediately and renews automatically until you cancel.",
+          tone: "neutral" as const
+        }
+      ];
 
   return (
     <View style={styles.timelineWrap}>
@@ -118,13 +132,13 @@ function TrialTimeline() {
                 styles.timelineDot,
                 row.tone === "active" ? styles.timelineDotActive : styles.timelineDotNeutral,
                 index < 2 ? styles.timelineDotToday : null,
-                index === 2 ? styles.timelineDotBilling : null
+                index === rows.length - 1 ? styles.timelineDotBilling : null
               ]}
             >
               <Ionicons
-                name={index === 0 ? "sparkles" : index === 1 ? "notifications" : "diamond"}
-                size={index === 1 ? 19 : index === 2 ? 17 : 13}
-                color={index < 2 ? "#FFFFFF" : index === 2 ? "#FFFFFF" : row.tone === "active" ? colors.accentPrimary : "#6B7382"}
+                name={index === 0 ? "sparkles" : hasTrial && index === 1 ? "notifications" : "diamond"}
+                size={index === 0 ? 13 : hasTrial && index === 1 ? 19 : 17}
+                color="#FFFFFF"
               />
             </View>
             {index < rows.length - 1 ? (
@@ -144,6 +158,37 @@ function TrialTimeline() {
   );
 }
 
+function TrialToggle({
+  enabled,
+  value,
+  onChange
+}: {
+  enabled: boolean;
+  value: boolean;
+  onChange?: (value: boolean) => void;
+}) {
+  if (!enabled || !onChange) return null;
+
+  return (
+    <View style={styles.toggleWrap}>
+      <View style={styles.toggleTrack}>
+        <Pressable
+          onPress={() => onChange(true)}
+          style={[styles.toggleOption, value ? styles.toggleOptionActive : null]}
+        >
+          <Text style={[styles.toggleLabel, value ? styles.toggleLabelActive : null]}>With Free Trial</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onChange(false)}
+          style={[styles.toggleOption, !value ? styles.toggleOptionActive : null]}
+        >
+          <Text style={[styles.toggleLabel, !value ? styles.toggleLabelActive : null]}>Without Trial</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 function PlanOption({
   plan,
   selected,
@@ -154,7 +199,14 @@ function PlanOption({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.planCard, selected && styles.planCardSelected, pressed && styles.planCardPressed]}>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.planCard,
+        selected && styles.planCardSelected,
+        pressed && styles.planCardPressed
+      ]}
+    >
       <View style={styles.planTopRow}>
         <Text style={styles.planName}>{planName(plan)}</Text>
         {selected ? (
@@ -170,7 +222,11 @@ function PlanOption({
           {periodKey(plan) === "yearly" ? "/week" : ` ${planPeriodLabel(plan)}`}
         </Text>
       </Text>
-      {secondaryPriceLine(plan) ? <Text style={styles.planSupport}>{secondaryPriceLine(plan)}</Text> : <View style={styles.planSupportSpacer} />}
+      {secondaryPriceLine(plan) ? (
+        <Text style={styles.planSupport}>{secondaryPriceLine(plan)}</Text>
+      ) : (
+        <View style={styles.planSupportSpacer} />
+      )}
     </Pressable>
   );
 }
@@ -181,6 +237,9 @@ export function OnboardingPaywallPlanSelector({
   selectedPackageId,
   onSelect,
   selectedPlan,
+  trialToggleEnabled = false,
+  wantsFreeTrial = true,
+  onChangeTrialMode,
   busy,
   statusText,
   onPurchase
@@ -190,6 +249,9 @@ export function OnboardingPaywallPlanSelector({
   selectedPackageId: string | null;
   onSelect: (packageId: string) => void;
   selectedPlan: PaywallPlanViewModel | null;
+  trialToggleEnabled?: boolean;
+  wantsFreeTrial?: boolean;
+  onChangeTrialMode?: (value: boolean) => void;
   busy: boolean;
   statusText?: string | null;
   onPurchase: () => void;
@@ -201,7 +263,8 @@ export function OnboardingPaywallPlanSelector({
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-      <TrialTimeline />
+      <TrialToggle enabled={trialToggleEnabled} value={wantsFreeTrial} onChange={onChangeTrialMode} />
+      <TrialTimeline hasTrial={Boolean(selectedPlan?.hasTrial)} />
 
       <View style={styles.planSection}>
         {loading ? (
@@ -217,18 +280,16 @@ export function OnboardingPaywallPlanSelector({
             minHeight={172}
           />
         ) : (
-          <>
-            <View style={[styles.planGrid, visiblePlans.length === 1 ? styles.planGridSingle : null]}>
-              {(visiblePlans.length > 0 ? visiblePlans : plans).map((plan) => (
-                <PlanOption
-                  key={plan.packageId}
-                  plan={plan}
-                  selected={selectedPackageId === plan.packageId}
-                  onPress={() => onSelect(plan.packageId)}
-                />
-              ))}
-            </View>
-          </>
+          <View style={[styles.planGrid, visiblePlans.length === 1 ? styles.planGridSingle : null]}>
+            {(visiblePlans.length > 0 ? visiblePlans : plans).map((plan) => (
+              <PlanOption
+                key={plan.packageId}
+                plan={plan}
+                selected={selectedPackageId === plan.packageId}
+                onPress={() => onSelect(plan.packageId)}
+              />
+            ))}
+          </View>
         )}
       </View>
 
@@ -244,7 +305,7 @@ export function OnboardingPaywallPlanSelector({
 
       <View style={styles.trustRow}>
         <Ionicons name="checkmark-circle" size={16} color="#171D27" />
-        <Text style={styles.trustText}>No payment due now</Text>
+        <Text style={styles.trustText}>{selectedPlan?.hasTrial ? "No payment due now" : "Cancel anytime"}</Text>
       </View>
 
       {billingClarification(selectedPlan) ? (
@@ -259,6 +320,41 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingBottom: 8,
     flex: 1
+  },
+  toggleWrap: {
+    marginTop: 14
+  },
+  toggleTrack: {
+    flexDirection: "row",
+    borderRadius: 16,
+    padding: 4,
+    backgroundColor: "#F2F4F7",
+    borderWidth: 1,
+    borderColor: "rgba(26,35,48,0.08)"
+  },
+  toggleOption: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 10
+  },
+  toggleOptionActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#10161F",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 }
+  },
+  toggleLabel: {
+    ...typography.BodyMedium,
+    color: "#66707F",
+    fontFamily: "Inter-SemiBold",
+    textAlign: "center"
+  },
+  toggleLabelActive: {
+    color: "#131A24"
   },
   timelineWrap: {
     gap: 4,
@@ -433,5 +529,5 @@ const styles = StyleSheet.create({
     color: "#808999",
     textAlign: "center",
     lineHeight: 18
-  },
+  }
 });

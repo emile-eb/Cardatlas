@@ -49,14 +49,27 @@ export default function PaywallScreen() {
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState<PaywallPlanViewModel[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [wantsFreeTrial, setWantsFreeTrial] = useState(true);
   const [busy, setBusy] = useState(false);
   const [statusText, setStatusText] = useState<string | null>(null);
 
   const pageEntrance = useRef(new Animated.Value(0)).current;
 
+  const trialToggleEnabled = useMemo(() => {
+    const trialCount = plans.filter((plan) => plan.hasTrial).length;
+    const noTrialCount = plans.filter((plan) => !plan.hasTrial).length;
+    return trialCount > 0 && noTrialCount > 0;
+  }, [plans]);
+
+  const visiblePlans = useMemo(() => {
+    if (!trialToggleEnabled) return plans;
+    const filtered = plans.filter((plan) => Boolean(plan.hasTrial) === wantsFreeTrial);
+    return filtered.length > 0 ? filtered : plans;
+  }, [plans, trialToggleEnabled, wantsFreeTrial]);
+
   const selectedPlan = useMemo(
-    () => plans.find((plan) => plan.packageId === selectedPackageId) ?? plans[0] ?? null,
-    [plans, selectedPackageId]
+    () => visiblePlans.find((plan) => plan.packageId === selectedPackageId) ?? visiblePlans[0] ?? null,
+    [visiblePlans, selectedPackageId]
   );
 
   useEffect(() => {
@@ -76,8 +89,9 @@ export default function PaywallScreen() {
       .then((model) => {
         const ordered = orderPlans(model.plans ?? []);
         setPlans(ordered);
+        const trialRecommended = preferredPlan(ordered.filter((plan) => plan.hasTrial));
         const recommended = preferredPlan(ordered);
-        setSelectedPackageId(recommended?.packageId ?? null);
+        setSelectedPackageId(trialRecommended?.packageId ?? recommended?.packageId ?? null);
       })
       .catch((error) => {
         setPlans([]);
@@ -89,6 +103,16 @@ export default function PaywallScreen() {
         setLoading(false);
       });
   }, [entryPoint, loadPaywall]);
+
+  useEffect(() => {
+    if (visiblePlans.length === 0) {
+      setSelectedPackageId(null);
+      return;
+    }
+    if (selectedPackageId && visiblePlans.some((plan) => plan.packageId === selectedPackageId)) return;
+    const recommended = preferredPlan(visiblePlans);
+    setSelectedPackageId(recommended?.packageId ?? visiblePlans[0]?.packageId ?? null);
+  }, [selectedPackageId, visiblePlans]);
 
   useEffect(() => {
     if (!premium) return;
@@ -215,10 +239,13 @@ export default function PaywallScreen() {
     return (
       <OnboardingPaywallFlow
         loading={loading}
-        plans={plans}
+        plans={visiblePlans}
         selectedPackageId={selectedPackageId}
         onSelectPackage={setSelectedPackageId}
         selectedPlan={selectedPlan}
+        trialToggleEnabled={trialToggleEnabled}
+        wantsFreeTrial={wantsFreeTrial}
+        onChangeTrialMode={setWantsFreeTrial}
         busy={busy}
         statusText={statusText}
         onPurchase={handlePurchase}
@@ -251,15 +278,20 @@ export default function PaywallScreen() {
           <View style={styles.stepWrap}>
             <View style={styles.step}>
               <View style={styles.pricingHeader}>
-                <Text style={styles.pricingHeadline}>Start your 3-day FREE trial to continue</Text>
+                <Text style={styles.pricingHeadline}>
+                  {selectedPlan?.hasTrial ? "Start your 3-day FREE trial to continue" : "Choose your plan to continue"}
+                </Text>
               </View>
 
               <OnboardingPaywallPlanSelector
                 loading={loading}
-                plans={plans}
+                plans={visiblePlans}
                 selectedPackageId={selectedPackageId}
                 onSelect={setSelectedPackageId}
                 selectedPlan={selectedPlan}
+                trialToggleEnabled={trialToggleEnabled}
+                wantsFreeTrial={wantsFreeTrial}
+                onChangeTrialMode={setWantsFreeTrial}
                 busy={busy}
                 statusText={statusText}
                 onPurchase={handlePurchase}

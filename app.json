@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "icon": "./assets/New App Icon.png",
+    "icon": "./assets/Final App Icon.png",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
@@ -17,11 +17,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.cardatlas.app",
-      "buildNumber": "47"
+      "buildNumber": "48"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/New App Icon.png",
+        "foregroundImage": "./assets/Final App Icon.png",
         "backgroundColor": "#ffffff"
       }
     },

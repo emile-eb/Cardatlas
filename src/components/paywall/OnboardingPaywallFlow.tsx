@@ -16,6 +16,9 @@ type OnboardingPaywallFlowProps = {
   selectedPackageId: string | null;
   onSelectPackage: (packageId: string) => void;
   selectedPlan: PaywallPlanViewModel | null;
+  trialToggleEnabled?: boolean;
+  wantsFreeTrial?: boolean;
+  onChangeTrialMode?: (value: boolean) => void;
   busy: boolean;
   statusText?: string | null;
   onPurchase: () => void;
@@ -107,6 +110,9 @@ function OnboardingPaywallStepThree({
   selectedPackageId,
   onSelectPackage,
   selectedPlan,
+  trialToggleEnabled,
+  wantsFreeTrial,
+  onChangeTrialMode,
   busy,
   statusText,
   onPurchase,
@@ -115,7 +121,9 @@ function OnboardingPaywallStepThree({
   return (
     <View style={styles.step}>
       <View style={styles.pricingHeader}>
-        <Text style={styles.pricingHeadline}>Start your 3-day FREE trial to continue</Text>
+        <Text style={styles.pricingHeadline}>
+          {selectedPlan?.hasTrial ? "Start your 3-day FREE trial to continue" : "Choose your plan to continue"}
+        </Text>
       </View>
 
       <OnboardingPaywallPlanSelector
@@ -124,6 +132,9 @@ function OnboardingPaywallStepThree({
         selectedPackageId={selectedPackageId}
         onSelect={onSelectPackage}
         selectedPlan={selectedPlan}
+        trialToggleEnabled={trialToggleEnabled}
+        wantsFreeTrial={wantsFreeTrial}
+        onChangeTrialMode={onChangeTrialMode}
         busy={busy}
         statusText={statusText}
         onPurchase={onPurchase}
@@ -138,6 +149,9 @@ export function OnboardingPaywallFlow({
   selectedPackageId,
   onSelectPackage,
   selectedPlan,
+  trialToggleEnabled,
+  wantsFreeTrial,
+  onChangeTrialMode,
   busy,
   statusText,
   onPurchase,
@@ -217,6 +231,9 @@ export function OnboardingPaywallFlow({
                 selectedPackageId={selectedPackageId}
                 onSelectPackage={onSelectPackage}
                 selectedPlan={selectedPlan}
+                trialToggleEnabled={trialToggleEnabled}
+                wantsFreeTrial={wantsFreeTrial}
+                onChangeTrialMode={onChangeTrialMode}
                 busy={busy}
                 statusText={statusText}
                 onPurchase={onPurchase}

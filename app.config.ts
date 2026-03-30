@@ -48,7 +48,7 @@ const config = {
   version: "1.0.0",
   orientation: "portrait",
   userInterfaceStyle: "light",
-  icon: "./assets/New App Icon.png",
+  icon: "./assets/Final App Icon.png",
   splash: {
     resizeMode: "contain",
     backgroundColor: "#ffffff"
@@ -58,12 +58,12 @@ const config = {
     supportsTablet: false,
     bundleIdentifier,
     // Keep this ahead of the latest TestFlight build.
-    buildNumber: "47"
+    buildNumber: "48"
   },
   android: {
     package: bundleIdentifier,
     adaptiveIcon: {
-      foregroundImage: "./assets/New App Icon.png",
+      foregroundImage: "./assets/Final App Icon.png",
       backgroundColor: "#ffffff"
     }
   },

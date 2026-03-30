@@ -105,7 +105,8 @@ function rarityVisuals(label: string | null | undefined) {
 
 export default function HomeTab() {
   const scrollRef = useRef<ScrollView>(null);
-  const { history, enterAiOrPaywall, consumeSessionPaywallTrigger, presentPaywall, startScanOrPaywall } = useAppState();
+  const { history, enterAiOrPaywall, consumeSessionPaywallTrigger, presentPaywall, startScanOrPaywall, premium } =
+    useAppState();
   const { preferences } = useAppPreferences();
   const { session } = useAuth();
   const homeDashboard = useHomeDashboard();
@@ -214,40 +215,42 @@ export default function HomeTab() {
         <View style={styles.brandLogoFrame}>
           <Image source={logoImage} style={styles.brandLogo} resizeMode="contain" />
         </View>
-        <View style={styles.statusCapsule}>
-          <Pressable
-            onPress={() => presentPaywall("discovery")}
-            style={({ pressed }) => [
-              styles.scansSegment,
-              pressed && styles.segmentPressed
-            ]}
-          >
-            <Text style={[styles.scansLabel, scansExhausted && styles.scansLabelExhausted]}>
-              <Text style={styles.scansValue}>{homeDashboard.scansRemaining}</Text> scans left
-            </Text>
-            <View style={styles.scanMeterRow}>
-              {[0, 1, 2].map((index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.scanMeterStep,
-                    index < scansRemainingClamped
-                      ? styles.scanMeterStepFilled
-                      : styles.scanMeterStepEmpty
-                  ]}
-                />
-              ))}
-            </View>
-          </Pressable>
+        {!premium ? (
+          <View style={styles.statusCapsule}>
+            <Pressable
+              onPress={() => presentPaywall("discovery")}
+              style={({ pressed }) => [
+                styles.scansSegment,
+                pressed && styles.segmentPressed
+              ]}
+            >
+              <Text style={[styles.scansLabel, scansExhausted && styles.scansLabelExhausted]}>
+                <Text style={styles.scansValue}>{homeDashboard.scansRemaining}</Text> scans left
+              </Text>
+              <View style={styles.scanMeterRow}>
+                {[0, 1, 2].map((index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.scanMeterStep,
+                      index < scansRemainingClamped
+                        ? styles.scanMeterStepFilled
+                        : styles.scanMeterStepEmpty
+                    ]}
+                  />
+                ))}
+              </View>
+            </Pressable>
 
-          <Pressable
-            onPress={() => presentPaywall("discovery")}
-            style={({ pressed }) => [styles.proSegment, pressed && styles.segmentPressed]}
-          >
-            <Ionicons name="diamond-outline" size={13} color="#FFFFFF" />
-            <Text style={styles.proText}>Pro</Text>
-          </Pressable>
-        </View>
+            <Pressable
+              onPress={() => presentPaywall("discovery")}
+              style={({ pressed }) => [styles.proSegment, pressed && styles.segmentPressed]}
+            >
+              <Ionicons name="diamond-outline" size={13} color="#FFFFFF" />
+              <Text style={styles.proText}>Pro</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.heroSection}>
