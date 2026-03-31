@@ -65,7 +65,7 @@ function AppRootNavigator() {
       <Stack.Screen name="onboarding" options={{ contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }} />
       <Stack.Screen
         name="paywall"
-        options={{ presentation: "modal", contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }}
+        options={{ presentation: "fullScreenModal", contentStyle: { backgroundColor: colors.bg, paddingTop: 0 } }}
       />
       <Stack.Screen
         name="processing"

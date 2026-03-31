@@ -12,9 +12,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OnboardingPaywallFlow } from "@/components/paywall/OnboardingPaywallFlow";
-import { OnboardingPaywallPlanSelector } from "@/components/paywall/onboarding/OnboardingPaywallPlanSelector";
+import {
+  OnboardingPaywallPlanSelector,
+  paywallBillingClarification,
+  paywallCtaTitle
+} from "@/components/paywall/onboarding/OnboardingPaywallPlanSelector";
 import { useAppState } from "@/state/AppState";
 import { PaywallFooterLinks } from "@/components/paywall/PaywallFooterLinks";
+import { PrimaryButton } from "@/components/PrimaryButton";
 import {
   analyticsLabelForPaywallEntryPoint,
   resolvePaywallEntryPoint,
@@ -295,6 +300,19 @@ export default function PaywallScreen() {
                 statusText={statusText}
               />
 
+              <PrimaryButton
+                title={paywallCtaTitle(selectedPlan)}
+                onPress={() => void handlePurchase()}
+                disabled={!selectedPlan}
+                pending={busy}
+                pendingLabel="Processing..."
+                style={styles.cta}
+              />
+
+              {paywallBillingClarification(selectedPlan) ? (
+                <Text style={styles.billingText}>{paywallBillingClarification(selectedPlan)}</Text>
+              ) : null}
+
               <PaywallFooterLinks
                 onRestore={handleRestore}
                 restoreBusy={busy}
@@ -369,5 +387,22 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: -0.7,
     textAlign: "center"
+  },
+  cta: {
+    minHeight: 58,
+    borderRadius: 18,
+    marginTop: 18,
+    backgroundColor: "#C81E1E",
+    shadowColor: "#C81E1E",
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 }
+  },
+  billingText: {
+    ...typography.Caption,
+    marginTop: 10,
+    color: "#808999",
+    textAlign: "center",
+    lineHeight: 18
   }
 });
