@@ -299,6 +299,7 @@ export default function PaywallScreen() {
                 onChangeTrialMode={setWantsFreeTrial}
                 statusText={statusText}
                 fillAvailableSpace={false}
+                showPostPlanMeta={false}
               />
 
               <PrimaryButton
@@ -313,6 +314,11 @@ export default function PaywallScreen() {
               {paywallBillingClarification(selectedPlan) ? (
                 <Text style={styles.billingText}>{paywallBillingClarification(selectedPlan)}</Text>
               ) : null}
+
+              <View style={styles.trustRow}>
+                <Ionicons name="checkmark-circle" size={16} color="#171D27" />
+                <Text style={styles.trustText}>{selectedPlan?.hasTrial ? "No payment due now" : "Cancel anytime"}</Text>
+              </View>
 
               <PaywallFooterLinks
                 onRestore={handleRestore}
@@ -405,5 +411,17 @@ const styles = StyleSheet.create({
     color: "#808999",
     textAlign: "center",
     lineHeight: 18
+  },
+  trustRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8
+  },
+  trustText: {
+    ...typography.BodyMedium,
+    color: "#171D27",
+    fontFamily: "Inter-Medium"
   }
 });

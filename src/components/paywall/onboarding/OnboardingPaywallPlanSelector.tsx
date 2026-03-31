@@ -265,7 +265,8 @@ export function OnboardingPaywallPlanSelector({
   wantsFreeTrial = true,
   onChangeTrialMode,
   statusText,
-  fillAvailableSpace = true
+  fillAvailableSpace = true,
+  showPostPlanMeta = true
 }: {
   loading: boolean;
   plans: PaywallPlanViewModel[];
@@ -277,6 +278,7 @@ export function OnboardingPaywallPlanSelector({
   onChangeTrialMode?: (value: boolean) => void;
   statusText?: string | null;
   fillAvailableSpace?: boolean;
+  showPostPlanMeta?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const yearlyPlan = plans.find((plan) => periodKey(plan) === "yearly") ?? null;
@@ -297,12 +299,16 @@ export function OnboardingPaywallPlanSelector({
           <PlanGrid plans={visiblePlans.length > 0 ? visiblePlans : plans} selectedPackageId={selectedPackageId} onSelect={onSelect} />
         )}
       </View>
-      {statusText ? <Text style={styles.status}>{statusText}</Text> : null}
+      {showPostPlanMeta ? (
+        <>
+          {statusText ? <Text style={styles.status}>{statusText}</Text> : null}
 
-      <View style={styles.trustRow}>
-        <Ionicons name="checkmark-circle" size={16} color="#171D27" />
-        <Text style={styles.trustText}>{selectedPlan?.hasTrial ? "No payment due now" : "Cancel anytime"}</Text>
-      </View>
+          <View style={styles.trustRow}>
+            <Ionicons name="checkmark-circle" size={16} color="#171D27" />
+            <Text style={styles.trustText}>{selectedPlan?.hasTrial ? "No payment due now" : "Cancel anytime"}</Text>
+          </View>
+        </>
+      ) : null}
     </View>
   );
 }
