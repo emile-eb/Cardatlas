@@ -28,15 +28,15 @@ function getWebPreviewPaywall(): PaywallViewModel {
       hasCurrentOffering: true,
       offeringId: "default",
       serverDescription: "web-preview",
-      rawPackageCount: 2,
-      rawPackageIds: ["$rc_annual", "$rc_monthly"],
-      rawProductIds: ["pro_yearly", "pro_monthly"],
-      filteredPackageCount: 2
+      rawPackageCount: 4,
+      rawPackageIds: ["$rc_annual_trial", "$rc_monthly_trial", "$rc_annual_straight", "$rc_monthly_straight"],
+      rawProductIds: ["pro_yearly", "pro_monthly", "Pro_Yearly_Straight", "Pro_Monthly_Straight"],
+      filteredPackageCount: 4
     },
     plans: [
       {
         productId: "pro_yearly",
-        packageId: "$rc_annual",
+        packageId: "$rc_annual_trial",
         title: "Yearly",
         priceLabel: "$59.99",
         billingLabel: "Per year",
@@ -47,13 +47,35 @@ function getWebPreviewPaywall(): PaywallViewModel {
       },
       {
         productId: "pro_monthly",
-        packageId: "$rc_monthly",
+        packageId: "$rc_monthly_trial",
         title: "Monthly",
         priceLabel: "$9.99",
         billingLabel: "Per month",
         billingPeriod: "monthly",
         trialLabel: "3-day free trial",
         hasTrial: true,
+        isRecommended: false
+      },
+      {
+        productId: "Pro_Yearly_Straight",
+        packageId: "$rc_annual_straight",
+        title: "Yearly",
+        priceLabel: "$59.99",
+        billingLabel: "Per year",
+        billingPeriod: "yearly",
+        trialLabel: null,
+        hasTrial: false,
+        isRecommended: true
+      },
+      {
+        productId: "Pro_Monthly_Straight",
+        packageId: "$rc_monthly_straight",
+        title: "Monthly",
+        priceLabel: "$9.99",
+        billingLabel: "Per month",
+        billingPeriod: "monthly",
+        trialLabel: null,
+        hasTrial: false,
         isRecommended: false
       }
     ]
@@ -283,15 +305,6 @@ class SubscriptionsServiceImpl implements SubscriptionsService {
   }
 
   async getEntitlements(userId: UUID): Promise<EntitlementState> {
-    if (Platform.OS === "web") {
-      return {
-        isPremium: true,
-        source: "subscription",
-        expiresAt: null,
-        productId: "web_preview"
-      };
-    }
-
     const state = await this.getState(userId);
     return mapEntitlementFromState(state);
   }

@@ -91,36 +91,23 @@ function billingClarification(plan: PaywallPlanViewModel | null): string | null 
 }
 
 function TrialTimeline({ hasTrial }: { hasTrial: boolean }) {
-  const rows = hasTrial
-    ? [
-        {
-          title: "Today",
-          body: "Unlock unlimited scans, AI collector tools, and premium market intelligence.",
-          tone: "active" as const
-        },
-        {
-          title: "In 2 Days - Reminder",
-          body: "We'll remind you that your trial is ending soon.",
-          tone: "active" as const
-        },
-        {
-          title: "In 3 Days - Billing Starts",
-          body: "You'll be charged on the correct billing date unless you cancel anytime before.",
-          tone: "neutral" as const
-        }
-      ]
-    : [
-        {
-          title: "Today",
-          body: "Unlock unlimited scans, AI collector tools, and premium market intelligence.",
-          tone: "active" as const
-        },
-        {
-          title: "Today - Billing Starts",
-          body: "Your selected plan begins immediately and renews automatically until you cancel.",
-          tone: "neutral" as const
-        }
-      ];
+  const rows = [
+    {
+      title: "Today",
+      body: "Unlock unlimited scans, AI collector tools, and premium market intelligence.",
+      tone: "active" as const
+    },
+    {
+      title: "In 2 Days - Reminder",
+      body: "We'll remind you that your trial is ending soon.",
+      tone: "active" as const
+    },
+    {
+      title: "In 3 Days - Billing Starts",
+      body: "You'll be charged on the correct billing date unless you cancel anytime before.",
+      tone: "neutral" as const
+    }
+  ];
 
   return (
     <View style={styles.timelineWrap}>
@@ -170,21 +157,59 @@ function TrialToggle({
   if (!enabled || !onChange) return null;
 
   return (
-    <View style={styles.toggleWrap}>
-      <View style={styles.toggleTrack}>
-        <Pressable
-          onPress={() => onChange(true)}
-          style={[styles.toggleOption, value ? styles.toggleOptionActive : null]}
-        >
-          <Text style={[styles.toggleLabel, value ? styles.toggleLabelActive : null]}>With Free Trial</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onChange(false)}
-          style={[styles.toggleOption, !value ? styles.toggleOptionActive : null]}
-        >
-          <Text style={[styles.toggleLabel, !value ? styles.toggleLabelActive : null]}>Without Trial</Text>
-        </Pressable>
+    <Pressable onPress={() => onChange(!value)} style={({ pressed }) => [styles.toggleWrap, pressed ? styles.toggleWrapPressed : null]}>
+      <View style={styles.toggleCopy}>
+        <Text style={styles.toggleLabel}>Enable free trial</Text>
       </View>
+
+      <View style={[styles.toggleSwitch, value ? styles.toggleSwitchActive : null]}>
+        <View style={[styles.toggleKnob, value ? styles.toggleKnobActive : null]}>
+          {value ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+function PlanLoadingState() {
+  return (
+    <InlineLoadingState
+      title="Loading live plans"
+      message="Preparing the current trial and pricing options."
+      minHeight={172}
+    />
+  );
+}
+
+function PlanUnavailableState() {
+  return (
+    <InlineLoadingState
+      title="Plans unavailable"
+      message="We couldn't load pricing right now. Try again shortly."
+      minHeight={172}
+    />
+  );
+}
+
+function PlanGrid({
+  plans,
+  selectedPackageId,
+  onSelect
+}: {
+  plans: PaywallPlanViewModel[];
+  selectedPackageId: string | null;
+  onSelect: (packageId: string) => void;
+}) {
+  return (
+    <View style={[styles.planGrid, plans.length === 1 ? styles.planGridSingle : null]}>
+      {plans.map((plan) => (
+        <PlanOption
+          key={plan.packageId}
+          plan={plan}
+          selected={selectedPackageId === plan.packageId}
+          onPress={() => onSelect(plan.packageId)}
+        />
+      ))}
     </View>
   );
 }
@@ -263,33 +288,16 @@ export function OnboardingPaywallPlanSelector({
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-      <TrialToggle enabled={trialToggleEnabled} value={wantsFreeTrial} onChange={onChangeTrialMode} />
       <TrialTimeline hasTrial={Boolean(selectedPlan?.hasTrial)} />
 
       <View style={styles.planSection}>
+        <TrialToggle enabled={trialToggleEnabled} value={wantsFreeTrial} onChange={onChangeTrialMode} />
         {loading ? (
-          <InlineLoadingState
-            title="Loading live plans"
-            message="Preparing the current trial and pricing options."
-            minHeight={172}
-          />
+          <PlanLoadingState />
         ) : plans.length === 0 ? (
-          <InlineLoadingState
-            title="Plans unavailable"
-            message="We couldn't load pricing right now. Try again shortly."
-            minHeight={172}
-          />
+          <PlanUnavailableState />
         ) : (
-          <View style={[styles.planGrid, visiblePlans.length === 1 ? styles.planGridSingle : null]}>
-            {(visiblePlans.length > 0 ? visiblePlans : plans).map((plan) => (
-              <PlanOption
-                key={plan.packageId}
-                plan={plan}
-                selected={selectedPackageId === plan.packageId}
-                onPress={() => onSelect(plan.packageId)}
-              />
-            ))}
-          </View>
+          <PlanGrid plans={visiblePlans.length > 0 ? visiblePlans : plans} selectedPackageId={selectedPackageId} onSelect={onSelect} />
         )}
       </View>
 
@@ -322,39 +330,52 @@ const styles = StyleSheet.create({
     flex: 1
   },
   toggleWrap: {
-    marginTop: 14
-  },
-  toggleTrack: {
     flexDirection: "row",
-    borderRadius: 16,
-    padding: 4,
-    backgroundColor: "#F2F4F7",
-    borderWidth: 1,
-    borderColor: "rgba(26,35,48,0.08)"
-  },
-  toggleOption: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
     alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10
+    justifyContent: "space-between",
+    minHeight: 54,
+    borderRadius: 27,
+    paddingLeft: 18,
+    paddingRight: 10,
+    borderWidth: 1,
+    borderColor: "rgba(22,29,39,0.08)",
+    backgroundColor: "#FFFFFF"
   },
-  toggleOptionActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#10161F",
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 }
+  toggleWrapPressed: {
+    opacity: 0.92
+  },
+  toggleCopy: {
+    flex: 1,
+    paddingRight: 16
   },
   toggleLabel: {
-    ...typography.BodyMedium,
-    color: "#66707F",
+    ...typography.BodyLarge,
+    color: "#141B25",
     fontFamily: "Inter-SemiBold",
-    textAlign: "center"
+    lineHeight: 22
   },
-  toggleLabelActive: {
-    color: "#131A24"
+  toggleSwitch: {
+    width: 50,
+    height: 28,
+    borderRadius: 14,
+    padding: 3,
+    justifyContent: "center",
+    backgroundColor: "#D7DEE7"
+  },
+  toggleSwitchActive: {
+    backgroundColor: colors.accentPrimary
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  toggleKnobActive: {
+    transform: [{ translateX: 22 }],
+    backgroundColor: "#B91C1C"
   },
   timelineWrap: {
     gap: 4,
@@ -425,7 +446,8 @@ const styles = StyleSheet.create({
   },
   planSection: {
     marginTop: 24,
-    paddingTop: 24
+    paddingTop: 24,
+    gap: 16
   },
   planGrid: {
     flexDirection: "row",

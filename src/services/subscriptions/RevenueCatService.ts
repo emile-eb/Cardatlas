@@ -42,10 +42,21 @@ function mapPeriod(productId: string): RevenueCatPackageModel["billingPeriod"] {
   return "unknown";
 }
 
+function hasNoTrialMarker(text: string) {
+  const normalized = text.toLowerCase();
+  return normalized.includes("no trial") || normalized.includes("straight");
+}
+
+function hasTrialMarker(text: string) {
+  const normalized = text.toLowerCase();
+  return normalized.includes("free trial") || normalized.includes("trial");
+}
+
 function mapPackage(rcPackage: any): RevenueCatPackageModel {
   const product = rcPackage?.product ?? {};
   const identifier = String(rcPackage?.identifier ?? "");
   const productId = String(product.identifier ?? "");
+  const productTitle = String(product.title ?? "");
   const period = mapPeriod(productId || identifier);
   const title =
     period === "weekly"
@@ -57,9 +68,16 @@ function mapPackage(rcPackage: any): RevenueCatPackageModel {
           : product.title || identifier || "Plan";
 
   const intro = product?.introPrice;
-  const trialDescription = intro?.periodNumberOfUnits
-    ? `${intro.periodNumberOfUnits} ${String(intro.periodUnit || "day").toLowerCase()} free trial`
-    : null;
+  const searchText = [identifier, productId, productTitle, title].filter(Boolean).join(" ");
+  const explicitNoTrial = hasNoTrialMarker(searchText);
+  const explicitTrial = hasTrialMarker(searchText);
+  const trialDescription = explicitNoTrial
+    ? null
+    : intro?.periodNumberOfUnits
+      ? `${intro.periodNumberOfUnits} ${String(intro.periodUnit || "day").toLowerCase()} free trial`
+      : explicitTrial
+        ? "Free trial"
+        : null;
 
   return {
     packageId: identifier,
@@ -218,7 +236,11 @@ class RevenueCatServiceImpl implements RevenueCatService {
 
     try {
       const offerings = await purchases.getOfferings();
-      const pkg = offerings?.current?.availablePackages?.find((p: any) => String(p.identifier) === packageIdentifier);
+      const pkg = offerings?.current?.availablePackages?.find((p: any) => {
+        const identifier = String(p?.identifier ?? "");
+        const productId = String(p?.product?.identifier ?? "");
+        return identifier === packageIdentifier || productId === packageIdentifier;
+      });
       if (!pkg) {
         return { status: "failed", message: "Selected package is unavailable." };
       }
