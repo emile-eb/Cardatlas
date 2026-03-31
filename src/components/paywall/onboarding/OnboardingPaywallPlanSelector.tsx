@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { PrimaryButton } from "@/components/PrimaryButton";
 import type { BillingPeriod, PaywallPlanViewModel } from "@/types";
 import { colors, typography } from "@/theme/tokens";
 import { InlineLoadingState } from "@/components/loading/InlineLoadingState";
@@ -63,7 +62,7 @@ function secondaryPriceLine(plan: PaywallPlanViewModel): string | null {
   return equivalentLine(plan);
 }
 
-function ctaTitle(plan: PaywallPlanViewModel | null): string {
+export function paywallCtaTitle(plan: PaywallPlanViewModel | null): string {
   if (!plan) return "Continue";
   if (!plan.hasTrial) return `Continue with ${planName(plan)}`;
 
@@ -72,7 +71,7 @@ function ctaTitle(plan: PaywallPlanViewModel | null): string {
   return "Start My Free Trial";
 }
 
-function billingClarification(plan: PaywallPlanViewModel | null): string | null {
+export function paywallBillingClarification(plan: PaywallPlanViewModel | null): string | null {
   if (!plan) return null;
   const period = periodKey(plan);
   const periodText =
@@ -265,9 +264,7 @@ export function OnboardingPaywallPlanSelector({
   trialToggleEnabled = false,
   wantsFreeTrial = true,
   onChangeTrialMode,
-  busy,
-  statusText,
-  onPurchase
+  statusText
 }: {
   loading: boolean;
   plans: PaywallPlanViewModel[];
@@ -277,9 +274,7 @@ export function OnboardingPaywallPlanSelector({
   trialToggleEnabled?: boolean;
   wantsFreeTrial?: boolean;
   onChangeTrialMode?: (value: boolean) => void;
-  busy: boolean;
   statusText?: string | null;
-  onPurchase: () => void;
 }) {
   const insets = useSafeAreaInsets();
   const yearlyPlan = plans.find((plan) => periodKey(plan) === "yearly") ?? null;
@@ -300,25 +295,12 @@ export function OnboardingPaywallPlanSelector({
           <PlanGrid plans={visiblePlans.length > 0 ? visiblePlans : plans} selectedPackageId={selectedPackageId} onSelect={onSelect} />
         )}
       </View>
-
-      <PrimaryButton
-        title={ctaTitle(selectedPlan)}
-        onPress={onPurchase}
-        disabled={!selectedPlan}
-        pending={busy}
-        pendingLabel="Processing..."
-        style={styles.cta}
-      />
       {statusText ? <Text style={styles.status}>{statusText}</Text> : null}
 
       <View style={styles.trustRow}>
         <Ionicons name="checkmark-circle" size={16} color="#171D27" />
         <Text style={styles.trustText}>{selectedPlan?.hasTrial ? "No payment due now" : "Cancel anytime"}</Text>
       </View>
-
-      {billingClarification(selectedPlan) ? (
-        <Text style={styles.billingText}>{billingClarification(selectedPlan)}</Text>
-      ) : null}
     </View>
   );
 }
@@ -379,15 +361,18 @@ const styles = StyleSheet.create({
   },
   timelineWrap: {
     gap: 4,
-    marginTop: 24
+    marginTop: 24,
+    width: "100%",
+    maxWidth: 332,
+    alignSelf: "center"
   },
   timelineRow: {
     flexDirection: "row",
     alignItems: "flex-start",
-    gap: 16
+    gap: 12
   },
   timelineRail: {
-    width: 30,
+    width: 26,
     alignItems: "center"
   },
   timelineDot: {
@@ -429,6 +414,7 @@ const styles = StyleSheet.create({
   },
   timelineCopy: {
     flex: 1,
+    paddingRight: 18,
     paddingBottom: 18
   },
   timelineTitle: {
@@ -445,9 +431,10 @@ const styles = StyleSheet.create({
     marginTop: 6
   },
   planSection: {
-    marginTop: 24,
-    paddingTop: 24,
-    gap: 16
+    marginTop: 16,
+    paddingTop: 8,
+    gap: 10,
+    paddingHorizontal: 6
   },
   planGrid: {
     flexDirection: "row",
@@ -518,7 +505,7 @@ const styles = StyleSheet.create({
     height: 0
   },
   trustRow: {
-    marginTop: 12,
+    marginTop: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -529,27 +516,10 @@ const styles = StyleSheet.create({
     color: "#171D27",
     fontFamily: "Inter-Medium"
   },
-  cta: {
-    minHeight: 58,
-    borderRadius: 18,
-    marginTop: 18,
-    backgroundColor: colors.accentPrimary,
-    shadowColor: colors.accentPrimary,
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 }
-  },
   status: {
     ...typography.bodySmall,
     color: "#4C5768",
     textAlign: "center",
-    marginTop: 10
-  },
-  billingText: {
-    ...typography.Caption,
-    marginTop: 14,
-    color: "#808999",
-    textAlign: "center",
-    lineHeight: 18
+    marginTop: 8
   }
 });

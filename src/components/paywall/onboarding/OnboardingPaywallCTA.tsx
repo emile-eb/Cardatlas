@@ -6,26 +6,41 @@ import { colors, typography } from "@/theme/tokens";
 export function OnboardingPaywallCTA({
   title,
   onPress,
-  caption
+  caption,
+  disabled,
+  pending,
+  pendingLabel
 }: {
   title: string;
   onPress: () => void;
   caption?: string;
+  disabled?: boolean;
+  pending?: boolean;
+  pendingLabel?: string;
 }) {
   const insets = useSafeAreaInsets();
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      <PrimaryButton title={title} onPress={onPress} style={styles.button} />
-      {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+      <PrimaryButton
+        title={title}
+        onPress={onPress}
+        style={styles.button}
+        disabled={disabled}
+        pending={pending}
+        pendingLabel={pendingLabel}
+      />
+      <View style={styles.captionSlot}>
+        {caption ? <Text style={styles.caption}>{caption}</Text> : null}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: "auto",
-    paddingTop: 22
+    paddingTop: 22,
+    minHeight: 104
   },
   button: {
     minHeight: 58,
@@ -35,6 +50,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 12 }
+  },
+  captionSlot: {
+    minHeight: 28,
+    justifyContent: "flex-start"
   },
   caption: {
     ...typography.Caption,

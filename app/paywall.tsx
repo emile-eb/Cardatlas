@@ -292,9 +292,7 @@ export default function PaywallScreen() {
                 trialToggleEnabled={trialToggleEnabled}
                 wantsFreeTrial={wantsFreeTrial}
                 onChangeTrialMode={setWantsFreeTrial}
-                busy={busy}
                 statusText={statusText}
-                onPurchase={handlePurchase}
               />
 
               <PaywallFooterLinks
