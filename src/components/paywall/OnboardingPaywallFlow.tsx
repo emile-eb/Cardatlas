@@ -127,6 +127,7 @@ function OnboardingPaywallStepThree({
           wantsFreeTrial={wantsFreeTrial}
           onChangeTrialMode={onChangeTrialMode}
           statusText={statusText}
+          showPostPlanMeta={false}
         />
       </View>
 
@@ -139,6 +140,11 @@ function OnboardingPaywallStepThree({
           pending={busy}
           pendingLabel="Processing..."
         />
+
+        <View style={styles.stepThreeTrustRow}>
+          <View style={styles.reassuranceDot} />
+          <Text style={styles.reassuranceText}>{selectedPlan?.hasTrial ? "No payment due now" : "Cancel anytime"}</Text>
+        </View>
       </View>
     </View>
   );
@@ -301,6 +307,13 @@ const styles = StyleSheet.create({
   },
   stepFooter: {
     marginTop: "auto"
+  },
+  stepThreeTrustRow: {
+    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8
   },
   copyBlock: {
     marginTop: 88,
