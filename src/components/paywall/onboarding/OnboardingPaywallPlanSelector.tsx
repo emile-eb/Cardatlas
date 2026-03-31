@@ -264,7 +264,8 @@ export function OnboardingPaywallPlanSelector({
   trialToggleEnabled = false,
   wantsFreeTrial = true,
   onChangeTrialMode,
-  statusText
+  statusText,
+  fillAvailableSpace = true
 }: {
   loading: boolean;
   plans: PaywallPlanViewModel[];
@@ -275,6 +276,7 @@ export function OnboardingPaywallPlanSelector({
   wantsFreeTrial?: boolean;
   onChangeTrialMode?: (value: boolean) => void;
   statusText?: string | null;
+  fillAvailableSpace?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const yearlyPlan = plans.find((plan) => periodKey(plan) === "yearly") ?? null;
@@ -282,7 +284,7 @@ export function OnboardingPaywallPlanSelector({
   const visiblePlans = [yearlyPlan, monthlyPlan].filter(Boolean) as PaywallPlanViewModel[];
 
   return (
-    <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 14) }]}>
+    <View style={[styles.wrap, fillAvailableSpace ? styles.wrapFill : null, { paddingBottom: Math.max(insets.bottom, 14) }]}>
       <TrialTimeline hasTrial={Boolean(selectedPlan?.hasTrial)} />
 
       <View style={styles.planSection}>
@@ -308,7 +310,9 @@ export function OnboardingPaywallPlanSelector({
 const styles = StyleSheet.create({
   wrap: {
     marginTop: 10,
-    paddingBottom: 8,
+    paddingBottom: 8
+  },
+  wrapFill: {
     flex: 1
   },
   toggleWrap: {

@@ -52,6 +52,10 @@ function hasTrialMarker(text: string) {
   return normalized.includes("free trial") || normalized.includes("trial");
 }
 
+function packageSearchText(pkg: { identifier?: string; productId?: string; title?: string }) {
+  return [pkg.identifier, pkg.productId, pkg.title].filter(Boolean).join(" ");
+}
+
 function mapPackage(rcPackage: any): RevenueCatPackageModel {
   const product = rcPackage?.product ?? {};
   const identifier = String(rcPackage?.identifier ?? "");
@@ -96,8 +100,45 @@ function mapOffering(offering: any): RevenueCatOfferingModel {
     ? offering.availablePackages.map(mapPackage)
     : [];
 
+  const normalizedPackages = packages.map((pkg: RevenueCatPackageModel) => {
+    const searchText = packageSearchText(pkg);
+    const explicitNoTrial = hasNoTrialMarker(searchText);
+    const explicitTrial = hasTrialMarker(searchText);
+    return {
+      ...pkg,
+      trialDescription:
+        explicitNoTrial
+          ? null
+          : pkg.trialDescription
+            ? pkg.trialDescription
+            : explicitTrial
+              ? "Free trial"
+              : null
+    };
+  });
+
+  const pairedPackages = normalizedPackages.map((pkg: RevenueCatPackageModel) => {
+    if (pkg.trialDescription) return pkg;
+
+    const searchText = packageSearchText(pkg);
+    if (hasNoTrialMarker(searchText)) return pkg;
+
+    const hasStraightSibling = normalizedPackages.some((candidate: RevenueCatPackageModel) => {
+      if (candidate.billingPeriod !== pkg.billingPeriod) return false;
+      if (candidate.productId === pkg.productId) return false;
+      return hasNoTrialMarker(packageSearchText(candidate));
+    });
+
+    return hasStraightSibling
+      ? {
+          ...pkg,
+          trialDescription: "Free trial"
+        }
+      : pkg;
+  });
+
   const packageOrder = ["yearly", "monthly", "weekly", "unknown"];
-  packages.sort(
+  pairedPackages.sort(
     (a: RevenueCatPackageModel, b: RevenueCatPackageModel) =>
       packageOrder.indexOf(a.billingPeriod) - packageOrder.indexOf(b.billingPeriod)
   );
@@ -105,7 +146,7 @@ function mapOffering(offering: any): RevenueCatOfferingModel {
   return {
     offeringId: String(offering?.identifier ?? "default"),
     serverDescription: offering?.serverDescription ? String(offering.serverDescription) : null,
-    packages
+    packages: pairedPackages
   };
 }
 

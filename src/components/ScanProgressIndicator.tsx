@@ -1,5 +1,5 @@
-import { StyleSheet, Text, View } from "react-native";
-import { colors, radius, spacing, typography } from "@/theme/tokens";
+import { StyleSheet, View } from "react-native";
+import { colors, radius, spacing } from "@/theme/tokens";
 import { ScanPhase } from "@/types/models";
 
 type Props = {
@@ -17,11 +17,9 @@ export function ScanProgressIndicator({ phase, frontDone, backDone }: Props) {
     <View style={styles.wrap}>
       <View style={styles.row}>
         <Dot done={frontDone} active={phase === "front"} />
-        <Text style={styles.text}>Front of card</Text>
       </View>
       <View style={styles.row}>
         <Dot done={backDone} active={phase === "back"} />
-        <Text style={styles.text}>Back of card</Text>
       </View>
     </View>
   );
@@ -35,8 +33,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8
+    alignItems: "center"
   },
   dot: {
     width: 16,
@@ -50,10 +47,5 @@ const styles = StyleSheet.create({
   active: {
     borderWidth: 2,
     borderColor: colors.black
-  },
-  text: {
-    ...typography.bodySmall,
-    fontWeight: "600",
-    color: colors.textPrimary
   }
 });

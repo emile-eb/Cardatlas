@@ -298,6 +298,7 @@ export default function PaywallScreen() {
                 wantsFreeTrial={wantsFreeTrial}
                 onChangeTrialMode={setWantsFreeTrial}
                 statusText={statusText}
+                fillAvailableSpace={false}
               />
 
               <PrimaryButton
