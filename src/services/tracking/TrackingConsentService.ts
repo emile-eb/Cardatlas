@@ -1,12 +1,14 @@
 import { Platform } from "react-native";
-import {
-  getTrackingPermissionsAsync,
-  requestTrackingPermissionsAsync,
-  type PermissionResponse
-} from "expo-tracking-transparency";
 import type { TrackingPermissionStatus } from "@/types";
 
-function normalizeTrackingStatus(status: PermissionResponse["status"]): TrackingPermissionStatus {
+type NativeTrackingPermissionStatus = "granted" | "denied" | "undetermined" | "unavailable" | "restricted";
+
+type TrackingTransparencyModule = {
+  getTrackingPermissionsAsync: () => Promise<{ status: NativeTrackingPermissionStatus }>;
+  requestTrackingPermissionsAsync: () => Promise<{ status: NativeTrackingPermissionStatus }>;
+};
+
+function normalizeTrackingStatus(status: NativeTrackingPermissionStatus): TrackingPermissionStatus {
   if (status === "granted" || status === "denied" || status === "undetermined") {
     return status;
   }
@@ -24,6 +26,26 @@ function logTracking(label: string, payload: Record<string, unknown>) {
   }
 }
 
+async function loadTrackingTransparencyModule(): Promise<TrackingTransparencyModule | null> {
+  if (Platform.OS !== "ios") {
+    return null;
+  }
+
+  try {
+    const mod = await import("expo-tracking-transparency");
+    return {
+      getTrackingPermissionsAsync: mod.getTrackingPermissionsAsync,
+      requestTrackingPermissionsAsync: mod.requestTrackingPermissionsAsync
+    };
+  } catch (error) {
+    logTracking("att_module_unavailable", {
+      platform: Platform.OS,
+      error: error instanceof Error ? error.message : "unknown_error"
+    });
+    return null;
+  }
+}
+
 export interface TrackingConsentService {
   getPermissionStatus(): Promise<TrackingPermissionStatus>;
   requestPermission(): Promise<TrackingPermissionStatus>;
@@ -33,10 +55,15 @@ export interface TrackingConsentService {
 class TrackingConsentServiceImpl implements TrackingConsentService {
   async getPermissionStatus(): Promise<TrackingPermissionStatus> {
     if (Platform.OS !== "ios") {
-      return "granted";
+      return Platform.OS === "web" ? "unavailable" : "granted";
     }
 
-    const response = await getTrackingPermissionsAsync();
+    const trackingModule = await loadTrackingTransparencyModule();
+    if (!trackingModule) {
+      return "unavailable";
+    }
+
+    const response = await trackingModule.getTrackingPermissionsAsync();
     const status = normalizeTrackingStatus(response.status);
     logTracking("att_status", {
       source: "get",
@@ -47,10 +74,15 @@ class TrackingConsentServiceImpl implements TrackingConsentService {
 
   async requestPermission(): Promise<TrackingPermissionStatus> {
     if (Platform.OS !== "ios") {
-      return "granted";
+      return Platform.OS === "web" ? "unavailable" : "granted";
     }
 
-    const response = await requestTrackingPermissionsAsync();
+    const trackingModule = await loadTrackingTransparencyModule();
+    if (!trackingModule) {
+      return "unavailable";
+    }
+
+    const response = await trackingModule.requestTrackingPermissionsAsync();
     const status = normalizeTrackingStatus(response.status);
     logTracking("att_status", {
       source: "request",
