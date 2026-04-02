@@ -34,9 +34,10 @@ if (metaAppId) {
       clientToken: metaClientToken,
       displayName: "CardAtlas",
       scheme: `fb${metaAppId}`,
-      advertiserIDCollectionEnabled: true,
-      autoLogAppEventsEnabled: true,
-      isAutoInitEnabled: true
+      iosUserTrackingPermission: false,
+      advertiserIDCollectionEnabled: false,
+      autoLogAppEventsEnabled: false,
+      isAutoInitEnabled: false
     }
   ]);
 }
@@ -57,8 +58,12 @@ const config = {
   ios: {
     supportsTablet: false,
     bundleIdentifier,
+    infoPlist: {
+      NSUserTrackingUsageDescription:
+        "CardAtlas uses tracking permission to measure ad attribution and improve marketing performance after you allow it."
+    },
     // Keep this ahead of the latest TestFlight build.
-    buildNumber: "53"
+    buildNumber: "54"
   },
   android: {
     package: bundleIdentifier,

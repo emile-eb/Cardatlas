@@ -33,6 +33,14 @@ function planPeriodLabel(plan: PaywallPlanViewModel): string {
   return plan.billingLabel;
 }
 
+function billedCadenceLine(plan: PaywallPlanViewModel): string {
+  const period = periodKey(plan);
+  if (period === "yearly") return "billed yearly";
+  if (period === "monthly") return "billed monthly";
+  if (period === "weekly") return "billed weekly";
+  return plan.billingLabel ? `billed ${plan.billingLabel.toLowerCase()}` : "billed per plan";
+}
+
 function parsePriceAmount(priceLabel: string): number | null {
   const match = priceLabel.replace(/,/g, "").match(/(\d+(?:\.\d{1,2})?)/);
   if (!match) return null;
@@ -44,22 +52,7 @@ function equivalentLine(plan: PaywallPlanViewModel): string | null {
   if (periodKey(plan) !== "yearly") return null;
   const amount = parsePriceAmount(plan.priceLabel);
   if (amount == null) return null;
-  return `$${(amount / 52).toFixed(2)}/week equivalent`;
-}
-
-function primaryPriceLine(plan: PaywallPlanViewModel): string {
-  if (periodKey(plan) === "yearly") {
-    const equivalent = equivalentLine(plan);
-    return equivalent ? equivalent.replace("/week equivalent", "") : plan.priceLabel;
-  }
-  return plan.priceLabel;
-}
-
-function secondaryPriceLine(plan: PaywallPlanViewModel): string | null {
-  if (periodKey(plan) === "yearly") {
-    return `${plan.priceLabel}/year`;
-  }
-  return equivalentLine(plan);
+  return `equivalent to $${(amount / 52).toFixed(2)}/week`;
 }
 
 export function paywallCtaTitle(plan: PaywallPlanViewModel | null): string {
@@ -241,16 +234,10 @@ function PlanOption({
       </View>
 
       <Text style={styles.planPrice}>
-        {primaryPriceLine(plan)}
-        <Text style={styles.planPeriod}>
-          {periodKey(plan) === "yearly" ? "/week" : ` ${planPeriodLabel(plan)}`}
-        </Text>
+        {plan.priceLabel}
       </Text>
-      {secondaryPriceLine(plan) ? (
-        <Text style={styles.planSupport}>{secondaryPriceLine(plan)}</Text>
-      ) : (
-        <View style={styles.planSupportSpacer} />
-      )}
+      <Text style={styles.planBillingCadence}>{billedCadenceLine(plan)}</Text>
+      {equivalentLine(plan) ? <Text style={styles.planEquivalent}>{equivalentLine(plan)}</Text> : <View style={styles.planSupportSpacer} />}
     </Pressable>
   );
 }
@@ -497,22 +484,23 @@ const styles = StyleSheet.create({
     ...typography.H1,
     color: "#121821",
     fontFamily: "Inter-Bold",
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 28,
+    lineHeight: 32,
     marginTop: 12
   },
-  planPeriod: {
-    ...typography.bodySmall,
-    color: "#6D7685",
-    fontFamily: "Inter-Medium"
+  planBillingCadence: {
+    ...typography.BodyMedium,
+    color: "#4D5665",
+    fontFamily: "Inter-SemiBold",
+    marginTop: 5
   },
-  planSupport: {
+  planEquivalent: {
     ...typography.Caption,
-    color: "#707988",
-    marginTop: 8
+    color: "#8A94A5",
+    marginTop: 6
   },
   planSupportSpacer: {
-    height: 0
+    height: 24
   },
   trustRow: {
     marginTop: 8,

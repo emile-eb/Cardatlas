@@ -6,6 +6,7 @@ import { AppStateProvider } from "@/state/AppState";
 import { AuthProvider, useAuth } from "@/features/auth";
 import { AppPreferencesProvider } from "@/features/settings/AppPreferencesProvider";
 import { NotificationsProvider } from "@/features/notifications/NotificationsProvider";
+import { TrackingProvider } from "@/features/tracking/TrackingProvider";
 import { colors, typography } from "@/theme/tokens";
 import { standardTopInset } from "@/theme/safeArea";
 import { useEffect } from "react";
@@ -120,10 +121,12 @@ export default function RootLayout() {
       <AuthProvider>
         <AppStateProvider>
           <AppPreferencesProvider>
-            <NotificationsProvider>
-              <StatusBar style="dark" />
-              <AppRootNavigator />
-            </NotificationsProvider>
+            <TrackingProvider>
+              <NotificationsProvider>
+                <StatusBar style="dark" />
+                <AppRootNavigator />
+              </NotificationsProvider>
+            </TrackingProvider>
           </AppPreferencesProvider>
         </AppStateProvider>
       </AuthProvider>

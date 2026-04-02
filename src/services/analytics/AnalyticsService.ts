@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import { ANALYTICS_EVENTS, type AnalyticsEventName } from "@/constants/analyticsEvents";
+import type { TrackingRuntimeState } from "@/types";
 
 export type AnalyticsPayload = Record<string, string | number | boolean | null | undefined>;
 
@@ -120,6 +121,12 @@ function dedupeKeyFor(event: AnalyticsEventName, payload: SafePayload): string {
 
 export interface AnalyticsService {
   initialize(): void;
+  configureTracking(options: {
+    enabled: boolean;
+    reason: string;
+    permissionStatus?: TrackingRuntimeState["permissionStatus"];
+  }): Promise<TrackingRuntimeState>;
+  getTrackingState(): TrackingRuntimeState;
   track(event: AnalyticsEventName, payload?: AnalyticsPayload): void;
   identify(userId: string, traits?: AnalyticsPayload): void;
   reset(): void;
@@ -128,29 +135,109 @@ export interface AnalyticsService {
 class CentralAnalyticsService implements AnalyticsService {
   private initialized = false;
   private seen = new Map<string, number>();
+  private metaInitialized = false;
+  private metaTrackingEnabled = false;
+  private permissionStatus: TrackingRuntimeState["permissionStatus"] = Platform.OS === "ios" ? "undetermined" : "granted";
 
   initialize() {
     if (this.initialized) return;
     this.initialized = true;
+    if (__DEV__) {
+      console.log("[analytics] initialized", {
+        platform: Platform.OS
+      });
+    }
+  }
 
+  getTrackingState(): TrackingRuntimeState {
+    return {
+      permissionStatus: this.permissionStatus,
+      trackingAllowed: this.metaTrackingEnabled,
+      metaTrackingEnabled: this.metaTrackingEnabled,
+      metaInitialized: this.metaInitialized
+    };
+  }
+
+  async configureTracking(options: {
+    enabled: boolean;
+    reason: string;
+    permissionStatus?: TrackingRuntimeState["permissionStatus"];
+  }): Promise<TrackingRuntimeState> {
     const meta = getMetaModule();
-    if (!meta) return;
+    if (options.permissionStatus) {
+      this.permissionStatus = options.permissionStatus;
+    } else if (Platform.OS !== "ios") {
+      this.permissionStatus = "granted";
+    }
+
+    if (!meta?.Settings) {
+      this.metaInitialized = false;
+      this.metaTrackingEnabled = false;
+      if (__DEV__) {
+        console.log("[tracking] meta_runtime", {
+          enabled: false,
+          initialized: false,
+          reason: `${options.reason}:meta_module_missing`
+        });
+      }
+      return this.getTrackingState();
+    }
 
     try {
-      if (meta.Settings?.setAutoLogAppEventsEnabled) {
+      if (!options.enabled) {
+        if (meta.Settings.setAutoLogAppEventsEnabled) {
+          meta.Settings.setAutoLogAppEventsEnabled(false);
+        }
+        if (meta.Settings.setAdvertiserIDCollectionEnabled) {
+          meta.Settings.setAdvertiserIDCollectionEnabled(false);
+        }
+        if (Platform.OS === "ios" && meta.Settings.setAdvertiserTrackingEnabled) {
+          await meta.Settings.setAdvertiserTrackingEnabled(false);
+        }
+        this.metaTrackingEnabled = false;
+        if (__DEV__) {
+          console.log("[tracking] meta_runtime", {
+            enabled: false,
+            initialized: this.metaInitialized,
+            reason: options.reason
+          });
+        }
+        return this.getTrackingState();
+      }
+
+      if (meta.Settings.setAdvertiserIDCollectionEnabled) {
+        meta.Settings.setAdvertiserIDCollectionEnabled(true);
+      }
+      if (meta.Settings.setAutoLogAppEventsEnabled) {
         meta.Settings.setAutoLogAppEventsEnabled(true);
       }
-      if (meta.Settings?.setAdvertiserTrackingEnabled) {
-        meta.Settings.setAdvertiserTrackingEnabled(true);
-      }
-      if (meta.Settings?.initializeSDK) {
+      if (!this.metaInitialized && meta.Settings.initializeSDK) {
         meta.Settings.initializeSDK();
+        this.metaInitialized = true;
+      }
+      if (Platform.OS === "ios" && meta.Settings.setAdvertiserTrackingEnabled) {
+        await meta.Settings.setAdvertiserTrackingEnabled(true);
+      }
+
+      this.metaTrackingEnabled = true;
+      if (__DEV__) {
+        console.log("[tracking] meta_runtime", {
+          enabled: true,
+          initialized: this.metaInitialized,
+          reason: options.reason
+        });
       }
     } catch (error) {
+      this.metaTrackingEnabled = false;
       if (__DEV__) {
-        console.log("[analytics] meta init skipped", error);
+        console.log("[tracking] meta_runtime_failed", {
+          reason: options.reason,
+          error
+        });
       }
     }
+
+    return this.getTrackingState();
   }
 
   private shouldTrack(event: AnalyticsEventName, payload: SafePayload): boolean {
@@ -184,6 +271,8 @@ class CentralAnalyticsService implements AnalyticsService {
     if (__DEV__) {
       console.log(`[analytics] ${event}`, safePayload);
     }
+
+    if (!this.metaTrackingEnabled) return;
 
     const meta = getMetaModule();
     if (!meta?.AppEventsLogger) return;

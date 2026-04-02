@@ -10,6 +10,8 @@ export type AppPreferences = {
   pushTokenRegistered: boolean;
   scanTipsEnabled: boolean;
   collectorAiEnabled: boolean;
+  trackingPermissionStatus: "undetermined" | "granted" | "denied" | "restricted" | "unavailable";
+  hasPromptedForTracking: boolean;
 };
 
 const STORAGE_KEY = "cardatlas:app-preferences:v1";
@@ -23,7 +25,9 @@ const DEFAULT_PREFERENCES: AppPreferences = {
   hasPromptedForNotifications: false,
   pushTokenRegistered: false,
   scanTipsEnabled: true,
-  collectorAiEnabled: true
+  collectorAiEnabled: true,
+  trackingPermissionStatus: "undetermined",
+  hasPromptedForTracking: false
 };
 
 function preferencesEqual(left: AppPreferences, right: AppPreferences) {
@@ -36,7 +40,9 @@ function preferencesEqual(left: AppPreferences, right: AppPreferences) {
     left.hasPromptedForNotifications === right.hasPromptedForNotifications &&
     left.pushTokenRegistered === right.pushTokenRegistered &&
     left.scanTipsEnabled === right.scanTipsEnabled &&
-    left.collectorAiEnabled === right.collectorAiEnabled
+    left.collectorAiEnabled === right.collectorAiEnabled &&
+    left.trackingPermissionStatus === right.trackingPermissionStatus &&
+    left.hasPromptedForTracking === right.hasPromptedForTracking
   );
 }
 
@@ -80,7 +86,19 @@ function sanitizePreferences(value: Partial<AppPreferences> | null | undefined):
     collectorAiEnabled:
       typeof value?.collectorAiEnabled === "boolean"
         ? value.collectorAiEnabled
-        : DEFAULT_PREFERENCES.collectorAiEnabled
+        : DEFAULT_PREFERENCES.collectorAiEnabled,
+    trackingPermissionStatus:
+      value?.trackingPermissionStatus === "granted" ||
+      value?.trackingPermissionStatus === "denied" ||
+      value?.trackingPermissionStatus === "restricted" ||
+      value?.trackingPermissionStatus === "unavailable" ||
+      value?.trackingPermissionStatus === "undetermined"
+        ? value.trackingPermissionStatus
+        : DEFAULT_PREFERENCES.trackingPermissionStatus,
+    hasPromptedForTracking:
+      typeof value?.hasPromptedForTracking === "boolean"
+        ? value.hasPromptedForTracking
+        : DEFAULT_PREFERENCES.hasPromptedForTracking
   };
 }
 

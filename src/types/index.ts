@@ -13,4 +13,5 @@ export * from "@/types/processing";
 export * from "@/types/priceHistory";
 export * from "@/types/scan";
 export * from "@/types/storage";
+export * from "@/types/tracking";
 export * from "@/types/valuation";

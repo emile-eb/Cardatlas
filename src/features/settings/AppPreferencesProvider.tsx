@@ -17,6 +17,8 @@ type AppPreferencesContextValue = {
   setPushTokenRegistered: (next: boolean) => Promise<void>;
   setScanTipsEnabled: (next: boolean) => Promise<void>;
   setCollectorAiEnabled: (next: boolean) => Promise<void>;
+  setTrackingPermissionStatus: (next: AppPreferences["trackingPermissionStatus"]) => Promise<void>;
+  setHasPromptedForTracking: (next: boolean) => Promise<void>;
 };
 
 const AppPreferencesContext = createContext<AppPreferencesContextValue | null>(null);
@@ -84,6 +86,16 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
     setPreferences(updated);
   }, []);
 
+  const setTrackingPermissionStatus = useCallback(async (next: AppPreferences["trackingPermissionStatus"]) => {
+    const updated = await appPreferencesService.patch({ trackingPermissionStatus: next });
+    setPreferences(updated);
+  }, []);
+
+  const setHasPromptedForTracking = useCallback(async (next: boolean) => {
+    const updated = await appPreferencesService.patch({ hasPromptedForTracking: next });
+    setPreferences(updated);
+  }, []);
+
   const value = useMemo<AppPreferencesContextValue>(
     () => ({
       preferences,
@@ -96,7 +108,9 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
       setHasPromptedForNotifications,
       setPushTokenRegistered,
       setScanTipsEnabled,
-      setCollectorAiEnabled
+      setCollectorAiEnabled,
+      setTrackingPermissionStatus,
+      setHasPromptedForTracking
     }),
     [
       preferences,
@@ -109,7 +123,9 @@ export function AppPreferencesProvider({ children }: PropsWithChildren) {
       setHasPromptedForNotifications,
       setPushTokenRegistered,
       setScanTipsEnabled,
-      setCollectorAiEnabled
+      setCollectorAiEnabled,
+      setTrackingPermissionStatus,
+      setHasPromptedForTracking
     ]
   );
 
