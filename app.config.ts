@@ -8,6 +8,7 @@ const expoProjectId =
 const plugins = [
   "expo-router",
   "expo-notifications",
+  "expo-tracking-transparency",
   [
     "expo-camera",
     {
