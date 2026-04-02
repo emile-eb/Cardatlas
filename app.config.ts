@@ -5,7 +5,7 @@ const expoProjectId =
   process.env.EXPO_PUBLIC_EXPO_PROJECT_ID ??
   "784382dd-1eb7-4598-b5ff-4b3315fd14c8";
 
-const plugins: any[] = [
+const plugins = [
   "expo-router",
   "expo-notifications",
   [
