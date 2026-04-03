@@ -5,30 +5,30 @@ const expoProjectId =
   process.env.EXPO_PUBLIC_EXPO_PROJECT_ID ??
   "784382dd-1eb7-4598-b5ff-4b3315fd14c8";
 
-const plugins = [
-  "expo-router",
-  "expo-notifications",
-  "expo-tracking-transparency",
-  [
-    "expo-camera",
-    {
-      cameraPermission: "Allow CardAtlas to scan the front and back of your cards.",
-      microphonePermission: false,
-      recordAudioAndroid: false
-    }
-  ],
-  [
-    "expo-image-picker",
-    {
-      photosPermission: "Allow CardAtlas to use photos of your cards from your library.",
-      cameraPermission: "Allow CardAtlas to take photos of your cards.",
-      microphonePermission: false
-    }
-  ]
-];
+const plugins = [];
+
+plugins.push("expo-router");
+plugins.push("expo-notifications");
+plugins.push("expo-tracking-transparency");
+plugins.push([
+  "expo-camera",
+  {
+    cameraPermission: "Allow CardAtlas to scan the front and back of your cards.",
+    microphonePermission: false,
+    recordAudioAndroid: false
+  }
+]);
+plugins.push([
+  "expo-image-picker",
+  {
+    photosPermission: "Allow CardAtlas to use photos of your cards from your library.",
+    cameraPermission: "Allow CardAtlas to take photos of your cards.",
+    microphonePermission: false
+  }
+]);
 
 if (metaAppId) {
-  plugins.push([
+  const metaPlugin = /** @type {any} */ ([
     "react-native-fbsdk-next",
     {
       appID: metaAppId,
@@ -41,6 +41,7 @@ if (metaAppId) {
       isAutoInitEnabled: false
     }
   ]);
+  plugins.push(metaPlugin);
 }
 
 const config = {
@@ -64,7 +65,7 @@ const config = {
         "CardAtlas uses tracking permission to measure ad attribution and improve marketing performance after you allow it."
     },
     // Keep this ahead of the latest TestFlight build.
-    buildNumber: "57"
+    buildNumber: "58"
   },
   android: {
     package: bundleIdentifier,
