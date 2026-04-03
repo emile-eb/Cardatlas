@@ -65,7 +65,7 @@ const config = {
         "CardAtlas uses tracking permission to measure ad attribution and improve marketing performance after you allow it."
     },
     // Keep this ahead of the latest TestFlight build.
-    buildNumber: "58"
+    buildNumber: "59"
   },
   android: {
     package: bundleIdentifier,

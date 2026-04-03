@@ -14,7 +14,6 @@ import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { ANALYTICS_EVENTS } from "@/constants/analyticsEvents";
 import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 import { useNotifications } from "@/features/notifications/NotificationsProvider";
-import { useTracking } from "@/features/tracking/TrackingProvider";
 
 type AnswerMap = Record<string, string[]>;
 
@@ -100,7 +99,6 @@ export default function OnboardingScreen() {
     setHasPromptedForNotifications
   } = useAppPreferences();
   const { requestPermissionInContext } = useNotifications();
-  const { requestPermission: requestTrackingPermission } = useTracking();
 
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
@@ -197,7 +195,6 @@ export default function OnboardingScreen() {
       }
 
       await completeOnboarding();
-      await requestTrackingPermission("post_onboarding");
       presentPaywall("onboarding", { replace: true });
       return;
     }

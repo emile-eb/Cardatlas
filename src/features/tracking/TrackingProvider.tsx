@@ -1,14 +1,13 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState as RNAppState, Platform } from "react-native";
 import { useAuth } from "@/features/auth";
-import { useAppState } from "@/state/AppState";
 import { useAppPreferences } from "@/features/settings/AppPreferencesProvider";
 import { analyticsService } from "@/services/analytics/AnalyticsService";
 import { trackingConsentService } from "@/services/tracking/TrackingConsentService";
 import type { TrackingPermissionStatus, TrackingRuntimeState } from "@/types";
 
 type TrackingContextValue = TrackingRuntimeState & {
-  requestPermission: (source: "post_onboarding" | "settings") => Promise<TrackingPermissionStatus>;
+  requestPermission: (source: "app_launch" | "post_onboarding" | "settings") => Promise<TrackingPermissionStatus>;
 };
 
 const TrackingContext = createContext<TrackingContextValue | null>(null);
@@ -42,7 +41,6 @@ function buildDefaultTrackingState(): TrackingRuntimeState {
 
 export function TrackingProvider({ children }: PropsWithChildren) {
   const { status } = useAuth();
-  const { onboardingDone } = useAppState();
   const { loaded, preferences, setTrackingPermissionStatus, setHasPromptedForTracking } = useAppPreferences();
   const [trackingState, setTrackingState] = useState<TrackingRuntimeState>(buildDefaultTrackingState);
   const requestInFlightRef = useRef<Promise<TrackingPermissionStatus> | null>(null);
@@ -110,7 +108,7 @@ export function TrackingProvider({ children }: PropsWithChildren) {
       });
   }, [loaded, preferences.hasPromptedForTracking, preferences.trackingPermissionStatus]);
 
-  const requestPermission = async (source: "post_onboarding" | "settings"): Promise<TrackingPermissionStatus> => {
+  const requestPermission = async (source: "app_launch" | "post_onboarding" | "settings"): Promise<TrackingPermissionStatus> => {
     if (requestInFlightRef.current) {
       return requestInFlightRef.current;
     }
@@ -143,14 +141,12 @@ export function TrackingProvider({ children }: PropsWithChildren) {
     if (Platform.OS !== "ios") return;
     if (!loaded) return;
     if (status !== "authenticated") return;
-    if (!onboardingDone) return;
     if (preferences.hasPromptedForTracking) return;
     if (preferences.trackingPermissionStatus !== "undetermined") return;
 
-    void requestPermission("post_onboarding");
+    void requestPermission("app_launch");
   }, [
     loaded,
-    onboardingDone,
     preferences.hasPromptedForTracking,
     preferences.trackingPermissionStatus,
     status
